@@ -1,0 +1,43 @@
+{{ template "layout.html" . }}
+
+<!--  -->
+
+{{ define "content" }}
+<!--  -->
+{{ block "game" . }}
+
+<p>You are: {{ .DisplayName }}</p>
+
+<p id="gameStatus">{{ .Game.PlayStatus }}</p>
+
+{{ template "board" .Game }} {{ end }}
+<!--  -->
+{{ end }}
+
+<!--  -->
+
+{{ define "game-status-oob" }}
+<p id="gameStatus" hx-swap-oob="true">@Model.Status()</p>
+{{ end }}
+
+<!--  -->
+
+{{ define "board" }}
+<div class="tic-tac-toe-board">
+  {{ range $cell := Cells .}}
+  <!--  -->
+  {{ block "cell" . }}
+  <div
+    class="tic-tac-toe-cell"
+    data-cell
+    hx-post="/move?i={{ .Index }}&id={{ .GameId }}"
+    hx-swap="outerHTML"
+  >
+    {{ .Symbol }}
+  </div>
+  {{ end }}
+  <!--  -->
+  {{ end }}
+</div>
+{{ end }}
+

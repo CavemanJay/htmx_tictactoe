@@ -1,0 +1,44 @@
+{{ template "layout.html" . }}
+
+{{ define "content" }}
+<div class="text-center">
+  <h3 class="display-4">Welcome to TicTacToe</h3>
+
+  <button class="btn btn-primary" hx-post="/newgame" hx-target=".gamelist">
+    New Game
+  </button>
+
+  <div class="gamelist" hx-get="/gamelist" hx-trigger="every 4s">
+    {{ template "game-list" . }}
+  </div>
+
+  <!-- 
+          <div
+            class="gamelist"
+            hx-ext="sse"
+            sse-connect="/gamelivelist"
+            sse-swap="game_list"
+          >
+            @await Html.PartialAsync("GameList")
+          </div> -->
+</div>
+{{ end }}
+
+<!--  -->
+
+{{ define "game-list" }}
+<div>
+  {{ range .Games }}
+  <div>{{ template "game-card" . }}</div>
+  {{ end }}
+</div>
+{{ end }}
+
+<!--  -->
+
+{{ define "game-card" }}
+<div class="card">
+  <a hx-boost="true" hx-push-url="true" href="/games/{{.Id}}"> {{ .Id }} </a>
+  <p>{{ .Info }}</p>
+</div>
+{{ end }}
