@@ -2,6 +2,7 @@ package tictactoe
 
 import (
 	"errors"
+	"fmt"
 )
 
 type Cell struct {
@@ -12,6 +13,7 @@ type Cell struct {
 
 type Board struct {
 	value int
+	bin string
 }
 
 func NewBoard() *Board {
@@ -20,17 +22,18 @@ func NewBoard() *Board {
 	}
 }
 
-func (b *Board) SetCell(index int, player uint8) error {
+func (b *Board) setCell(index int, player int) error {
 	if player > 0b10 {
 		return errors.New("invalid player")
 	}
-	val := player << (index * 2)
+	val := int(player) << (index * 2)
 	b.value |= int(val)
+	b.bin = fmt.Sprintf("%32b", b.value)
 	return nil
 }
 
-func (b *Board) GetCell(index int) uint8 {
-	return uint8((b.value >> (index * 2)) & 0b11)
+func (b *Board) GetCell(index int) int {
+	return (b.value >> (index * 2)) & 0b11
 }
 
 func (b *Board) Symbol(index uint) string {
@@ -43,4 +46,23 @@ func (b *Board) Symbol(index uint) string {
 		return "O"
 	}
 	return "?"
+}
+
+func (b *Board) String() string {
+	val := ""
+	for r := 0; r < 3; r++ {
+		for c := 0; c < 3; c++ {
+			s := b.Symbol(uint(r*3 + c))
+			if s == "" {
+				s = "?"
+			}
+			val += s
+		}
+
+		val += "\n"
+	}
+
+	val += "\n" + b.bin
+
+	return val
 }

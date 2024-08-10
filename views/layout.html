@@ -1,3 +1,4 @@
+{{ define "layoutheader" }}
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -34,10 +35,16 @@
       </nav>
     </header>
     <div class="container">
-      <main role="main" class="pb-3">{{ template "content" . }}</main>
+      <main role="main" class="pb-3">
+        {{ end }}
+        <!-- Content -->
+        {{ define "layoutfooter" }}
+      </main>
     </div>
 
     <script src="/css/lib/jquery/dist/jquery.min.js"></script>
     <script src="/css/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
+
+{{ end }}

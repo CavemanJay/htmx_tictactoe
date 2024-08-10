@@ -6,10 +6,7 @@ require github.com/labstack/echo/v4 v4.12.0
 
 require github.com/google/uuid v1.6.0
 
-require github.com/unrolled/render v1.6.1
-
 require (
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

@@ -1,29 +1,27 @@
-{{ template "layout.html" . }}
-
+{{ define "play" }}
 <!--  -->
-
-{{ define "content" }}
-<!--  -->
-{{ block "game" . }}
+{{ template "layoutheader" . }}
 
 <p>You are: {{ .DisplayName }}</p>
 
-<p id="gameStatus">{{ .Game.PlayStatus }}</p>
+<div id="game-status">
+  {{ block "game-status" .Game }}
+  <p hx-trigger="every 2s" hx-get="/gamestatus?id={{.Id}}" id="gameStatus">{{ .PlayStatus }}</p>
+  <!-- <p hx-trigger="click" hx-swap="outerHTML" hx-get="/gamestatus?id={{.Id}}" id="gameStatus">{{ .PlayStatus }}</p> -->
+  {{ end }}
+</div>
 
-{{ template "board" .Game }} {{ end }}
+{{ template "board" .Game }}
 <!--  -->
-{{ end }}
-
+{{ template "layoutfooter" . }}
 <!--  -->
-
-{{ define "game-status-oob" }}
-<p id="gameStatus" hx-swap-oob="true">@Model.Status()</p>
 {{ end }}
 
 <!--  -->
 
 {{ define "board" }}
-<div class="tic-tac-toe-board">
+<!-- <div class="tic-tac-toe-board"> -->
+<div hx-get="/gameboard?id={{.Id}}" hx-swap="outerHTML" hx-trigger="every 2s" class="tic-tac-toe-board">
   {{ range $cell := Cells .}}
   <!--  -->
   {{ block "cell" . }}
@@ -40,4 +38,3 @@
   {{ end }}
 </div>
 {{ end }}
-
