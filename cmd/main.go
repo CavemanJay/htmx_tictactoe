@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 const COOKIENAME = "tictactoe"
@@ -68,7 +69,7 @@ func newTemplate() *Templates {
 	}
 }
 
-type IndexPage struct {
+type GameList struct {
 	Games []*tictactoe.Game
 }
 
@@ -77,8 +78,8 @@ type GamePage struct {
 	Game        *tictactoe.Game
 }
 
-func newIndexPage() IndexPage {
-	return IndexPage{
+func newGameList() GameList {
+	return GameList{
 		Games: tictactoe.Games,
 	}
 }
@@ -124,19 +125,31 @@ func getGame(c echo.Context) (*tictactoe.Game, error) {
 
 func main() {
 	e := echo.New()
-	// e.Use(middleware.Logger())
+	e.Use(middleware.Logger())
 	e.Renderer = newTemplate()
 	e.Static("/images", "images")
 	e.Static("/css", "css")
 
-	gameUpdates := make(chan tictactoe.GameId, 5)
+	gamePlay := make(chan tictactoe.GameId, 5)
+	gameStatus := make(chan tictactoe.GameId, 5)
 	activeGameListeners := make(map[chan tictactoe.GameId]struct{})
+	indexListeners := make(map[chan tictactoe.GameId]struct{})
 	var mu sync.Mutex
 
 	go func() {
-		for gameId := range gameUpdates {
+		for gameId := range gamePlay {
 			mu.Lock()
 			for listener := range activeGameListeners {
+				listener <- gameId
+			}
+			mu.Unlock()
+		}
+	}()
+
+	go func() {
+		for gameId := range gameStatus {
+			mu.Lock()
+			for listener := range indexListeners {
 				listener <- gameId
 			}
 			mu.Unlock()
@@ -162,26 +175,18 @@ func main() {
 	})
 
 	e.GET("/", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "index", newIndexPage())
+		return c.Render(http.StatusOK, "index", newGameList())
 	})
 
 	e.GET("/games/:id", func(c echo.Context) error {
-		// idStr := c.Param("id")
-		// id, _ := strconv.Atoi(idStr)
-		// id--
-		// if id < 0 || id >= len(tictactoe.Games) {
-		// 	return c.String(http.StatusNotFound, "Game not found")
-		// }
-		// game := tictactoe.Games[id]
 		game, err := getGame(c)
 		if err != nil {
-			// return c.String(http.StatusInternalServerError, err.Error())
 			return err
 		}
-		display := "Player 1"
 		client, _ := getClientId(c)
 		game.Join(client)
-		gameUpdates <- game.Id
+		gameStatus <- game.Id
+		display := "Player 1"
 		if game.Player2 == client {
 			display = "Player 2"
 		}
@@ -193,7 +198,7 @@ func main() {
 	})
 
 	e.GET("/gamelist", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "game-list", newIndexPage())
+		return c.Render(http.StatusOK, "game-list", newGameList())
 	})
 
 	e.GET("/gamestatus", func(c echo.Context) error {
@@ -208,6 +213,68 @@ func main() {
 		gameId, _ := strconv.Atoi(idStr)
 		game := tictactoe.Games[gameId-1]
 		return c.Render(http.StatusOK, "board", game)
+	})
+
+	e.GET("/gamelivelist", func(c echo.Context) error {
+		// clientId, _ := getClientId(c)
+		c.Response().Header().Set(echo.HeaderContentType, "text/event-stream")
+		c.Response().Header().Set(echo.HeaderCacheControl, "no-cache")
+		c.Response().Header().Set(echo.HeaderConnection, "keep-alive")
+		c.Response().Flush()
+
+		indexListener := make(chan tictactoe.GameId)
+		mu.Lock()
+		indexListeners[indexListener] = struct{}{}
+		mu.Unlock()
+
+		// log.Printf("Client %s connected", clientId)
+
+		cleanup := func() {
+			mu.Lock()
+			delete(indexListeners, indexListener)
+			mu.Unlock()
+			close(indexListener)
+		}
+
+		processEvent := func(gameId tictactoe.GameId) bool {
+			if gameId < 1 || int(gameId) > len(tictactoe.Games) {
+				return true
+			}
+			game := tictactoe.Games[gameId-1]
+
+			if gameId != game.Id {
+				return true
+			}
+			w := c.Response().Writer
+			fmt.Fprint(w, "event: game_update\n")
+			var templateBuf bytes.Buffer
+			// err := c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "game-card-oob", game, c)
+			err := c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "game-list", newGameList(), c)
+			if err != nil {
+				log.Fatal(err)
+				return true
+			}
+			w.Write([]byte("data: " + templateBuf.String() + "\n\n"))
+			c.Response().Flush()
+			log.Println("Sent game update event")
+			return true
+		}
+
+	listenerLoop:
+		for {
+			select {
+			case <-c.Request().Context().Done():
+				// log.Printf("Client %s disconnected", clientId)
+				cleanup()
+				return nil
+			case gameId := <-indexListener:
+				if !processEvent(gameId) {
+					break listenerLoop
+				}
+			}
+		}
+
+		return nil
 	})
 
 	e.GET("/liveboard", func(c echo.Context) error {
@@ -278,8 +345,13 @@ func main() {
 	})
 
 	e.POST("/newgame", func(c echo.Context) error {
-		tictactoe.NewGame()
-		return c.Render(http.StatusOK, "game-list", newIndexPage())
+		mu.Lock()
+		game := tictactoe.NewGame()
+		mu.Unlock()
+		// log.Println("New game created. Total games:", len(tictactoe.Games))
+		gameStatus <- game.Id
+		return c.Render(http.StatusOK, "game-list", newGameList())
+		// return c.Render(http.StatusOK, "game-card", game)
 	})
 
 	e.POST("/move", func(c echo.Context) error {
@@ -304,7 +376,7 @@ func main() {
 		if !isPlayer1 {
 			playerValue = 0b10
 		}
-		err = game.PlayMove(playerValue, cellIdx, gameUpdates)
+		err = game.PlayMove(playerValue, cellIdx, gamePlay)
 		fmt.Println(game.Board.String())
 		if err != nil {
 			return c.String(http.StatusBadRequest, err.Error())
