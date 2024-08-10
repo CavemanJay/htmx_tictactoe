@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -76,6 +77,7 @@ type GameList struct {
 type GamePage struct {
 	DisplayName string
 	Game        *tictactoe.Game
+	ClientId    string
 }
 
 func newGameList() GameList {
@@ -84,17 +86,22 @@ func newGameList() GameList {
 	}
 }
 
-func setClientCookie(c echo.Context) error {
+func setClientCookie(c echo.Context) (string, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return err
+		return "", err
 	}
+
+	idStr := id.String()
+	idParts := strings.Split(idStr, "-")
+	x := idParts[len(idParts)-2] + "-" + idParts[len(idParts)-1]
 	cookie := new(http.Cookie)
 	cookie.Name = COOKIENAME
-	cookie.Value = id.String()
+	cookie.Value = x
 	cookie.Path = "/"
 	c.SetCookie(cookie)
-	return nil
+	c.Response().Flush()
+	return cookie.Value, nil
 }
 
 func getClientId(c echo.Context) (string, error) {
@@ -103,6 +110,17 @@ func getClientId(c echo.Context) (string, error) {
 		return "", err
 	}
 	return cookie.Value, nil
+}
+
+func removeElement(slice []string, element string) []string {
+	for i, v := range slice {
+		if v == element {
+			// Remove the element from the slice
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	// If the element is not found, return the original slice
+	return slice
 }
 
 func getGame(c echo.Context) (*tictactoe.Game, error) {
@@ -134,6 +152,7 @@ func main() {
 	gameStatus := make(chan tictactoe.GameId, 5)
 	activeGameListeners := make(map[chan tictactoe.GameId]struct{})
 	indexListeners := make(map[chan tictactoe.GameId]struct{})
+	gameParticipants := make(map[tictactoe.GameId][]string)
 	var mu sync.Mutex
 
 	go func() {
@@ -162,7 +181,7 @@ func main() {
 			if err != nil {
 				switch {
 				case errors.Is(err, http.ErrNoCookie):
-					err = setClientCookie(c)
+					_, err = setClientCookie(c)
 					if err != nil {
 						return err
 					}
@@ -183,9 +202,16 @@ func main() {
 		if err != nil {
 			return err
 		}
-		client, _ := getClientId(c)
+		client, err := getClientId(c)
+		if err != nil {
+			client, err = setClientCookie(c)
+			if err != nil {
+				return errors.New("Could not set client cookie")
+			}
+		}
 		game.Join(client)
 		gameStatus <- game.Id
+		gamePlay <- game.Id
 		display := "Player 1"
 		if game.Player2 == client {
 			display = "Player 2"
@@ -193,6 +219,7 @@ func main() {
 		page := GamePage{
 			DisplayName: display,
 			Game:        game,
+			ClientId:    client,
 		}
 		return c.Render(200, "play", page)
 	})
@@ -292,13 +319,20 @@ func main() {
 		gameListener := make(chan tictactoe.GameId)
 		mu.Lock()
 		activeGameListeners[gameListener] = struct{}{}
+		gameParticipants[game.Id] = append(gameParticipants[game.Id], clientId)
 		mu.Unlock()
 
-		log.Printf("Client %s connected", clientId)
+		log.Printf("Client %s connected to game %d", clientId, game.Id)
 
 		cleanup := func() {
 			mu.Lock()
 			delete(activeGameListeners, gameListener)
+			participants, exists := gameParticipants[game.Id]
+			if exists {
+				gameParticipants[game.Id] = removeElement(participants, clientId)
+			} else {
+				log.Println("Could not retrieve participants for game", game.Id)
+			}
 			mu.Unlock()
 			close(gameListener)
 		}
@@ -312,6 +346,7 @@ func main() {
 			var templateBuf bytes.Buffer
 			c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "board", game, c)
 			c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "game-status", game, c)
+			c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "client-list", GamePage{Game: game, ClientId: clientId}, c)
 			w.Write([]byte("data: " + templateBuf.String() + "\n\n"))
 			c.Response().Flush()
 

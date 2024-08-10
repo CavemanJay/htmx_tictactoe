@@ -2,11 +2,35 @@
 <!--  -->
 {{ template "layoutheader" . }}
 
-<p>You are: {{ .DisplayName }}</p>
+<style>
+  .sidebar {
+    /* height: 90vh; */
+    height: 100%;
+    width: 250px;
+    position: absolute;
+    /* top: 40px; */
+    left: 0;
+    background-color: #f8f9fa;
+    padding: 15px;
+  }
+  main {
+    margin-left: 250px;
+  }
+  .player-info {
+    margin-bottom: 20px;
+  }
+  .list-group-item {
+    border: none;
+  }
+</style>
 
+{{ template "client-list" . }}
+<!--  -->
 {{ block "game-status" .Game }}
 <p id="gameStatus" hx-swap-oob="true">{{ .PlayStatus }}</p>
-{{ end }} {{ template "live-board" .Game }}
+{{ end }}
+<!--  -->
+{{ template "live-board" .Game }}
 <!--  -->
 {{ template "layoutfooter" . }}
 <!--  -->
@@ -50,4 +74,34 @@
   <!--  -->
   {{ end }}
 </div>
+{{ end }}
+
+<!--  -->
+
+{{ define "client-list" }}
+<aside hx-swap-oob="true" id="client-list" hx class="sidebar">
+  <h3>Players</h3>
+  <div class="player-info">
+    <h5 class="{{if eq .Game.CurrentPlayer .Game.Player1}}fw-bold{{end}}">Player 1 {{ if eq .Game.Player1 .ClientId }} (You) {{end}}</h5>
+    <p>Client Id: {{.Game.Player1}}</p>
+  </div>
+  <div class="player-info">
+    {{if .Game.Player2}}
+    <h5 class="{{if eq .Game.CurrentPlayer .Game.Player2}}fw-bold{{end}}">Player 2 {{ if eq .Game.Player2 .ClientId }} (You) {{end}}</h5>
+    <p>Client Id: {{.Game.Player2}}</p>
+    {{else}}
+    <span>Waiting for player 2...</span>
+    {{end}}
+  </div>
+  <div>
+    <h4>Spectators</h4>
+    <ul class="list-group">
+      {{ $clientId := .ClientId }}
+      <!--  -->
+      {{ range .Game.Spectators }}
+      <li class="list-group-item" style="font-size: 0.8rem;">{{ . }} {{ if eq . $clientId }}(You){{end}}</li>
+      {{ end }}
+    </ul>
+  </div>
+</aside>
 {{ end }}

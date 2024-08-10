@@ -13,8 +13,8 @@ type Game struct {
 	Player1       string
 	Player2       string
 	Winner        string
+	Spectators    []string
 	currentPlayer string
-	spectators    []string
 }
 
 var count GameId = 0
@@ -74,7 +74,7 @@ func (g *Game) Join(player string) {
 		g.Player2 = player
 		g.currentPlayer = g.Player1
 	} else {
-		g.spectators = append(g.spectators, player)
+		g.Spectators = append(g.Spectators, player)
 	}
 }
 
@@ -163,4 +163,8 @@ func (g *Game) CheckWinner() bool {
 	}
 
 	return false
+}
+
+func (g *Game) CurrentPlayer() string {
+	return g.currentPlayer
 }
