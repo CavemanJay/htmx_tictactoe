@@ -6,8 +6,9 @@ func init() {
 	NewGame()
 }
 
+type GameId int
 type Game struct {
-	Id            int
+	Id            GameId
 	Board         Board
 	Player1       string
 	Player2       string
@@ -16,7 +17,7 @@ type Game struct {
 	spectators    []string
 }
 
-var count = 0
+var count GameId = 0
 
 var Games = []*Game{}
 
@@ -77,7 +78,7 @@ func (g *Game) Join(player string) {
 	}
 }
 
-func (g *Game) PlayMove(player int, index int) error {
+func (g *Game) PlayMove(player int, index int, c chan<- GameId) error {
 	if g.Winner != "" {
 		return errors.New("The game has already ended")
 	}
@@ -95,6 +96,12 @@ func (g *Game) PlayMove(player int, index int) error {
 	}
 
 	g.Board.setCell(index, player)
+
+	if c != nil {
+		defer func() {
+			c <- g.Id
+		}()
+	}
 
 	if g.CheckWinner() {
 		g.Winner = g.currentPlayer

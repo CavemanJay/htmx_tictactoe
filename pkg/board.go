@@ -8,12 +8,12 @@ import (
 type Cell struct {
 	Symbol string
 	Index  uint
-	GameId int
+	GameId GameId
 }
 
 type Board struct {
 	value int
-	bin string
+	bin   string
 }
 
 func NewBoard() *Board {
@@ -28,12 +28,15 @@ func (b *Board) setCell(index int, player int) error {
 	}
 	val := int(player) << (index * 2)
 	b.value |= int(val)
-	b.bin = fmt.Sprintf("%32b", b.value)
 	return nil
 }
 
 func (b *Board) GetCell(index int) int {
 	return (b.value >> (index * 2)) & 0b11
+}
+
+func (b *Board) Bin() string {
+	return fmt.Sprintf("%018b", b.value)
 }
 
 func (b *Board) Symbol(index uint) string {
@@ -62,7 +65,7 @@ func (b *Board) String() string {
 		val += "\n"
 	}
 
-	val += "\n" + b.bin
+	val += "\n" + b.Bin()
 
 	return val
 }

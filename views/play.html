@@ -4,14 +4,9 @@
 
 <p>You are: {{ .DisplayName }}</p>
 
-<div id="game-status">
-  {{ block "game-status" .Game }}
-  <p hx-trigger="every 2s" hx-get="/gamestatus?id={{.Id}}" id="gameStatus">{{ .PlayStatus }}</p>
-  <!-- <p hx-trigger="click" hx-swap="outerHTML" hx-get="/gamestatus?id={{.Id}}" id="gameStatus">{{ .PlayStatus }}</p> -->
-  {{ end }}
-</div>
-
-{{ template "board" .Game }}
+{{ block "game-status" .Game }}
+<p id="gameStatus" hx-swap-oob="true">{{ .PlayStatus }}</p>
+{{ end }} {{ template "live-board" .Game }}
 <!--  -->
 {{ template "layoutfooter" . }}
 <!--  -->
@@ -21,7 +16,7 @@
 
 {{ define "board" }}
 <!-- <div class="tic-tac-toe-board"> -->
-<div hx-get="/gameboard?id={{.Id}}" hx-swap="outerHTML" hx-trigger="every 2s" class="tic-tac-toe-board">
+<div class="tic-tac-toe-board">
   {{ range $cell := Cells .}}
   <!--  -->
   {{ block "cell" . }}
@@ -34,6 +29,24 @@
     {{ .Symbol }}
   </div>
   {{ end }}
+  <!--  -->
+  {{ end }}
+</div>
+{{ end }}
+
+<!--  -->
+
+{{ define "live-board" }}
+<div
+  hx-ext="sse"
+  sse-connect="/liveboard?id={{.Id}}"
+  sse-swap="game_refresh_{{.Id}}"
+  class="tic-tac-toe-board"
+  sse-close="game_over"
+>
+  {{ range $cell := Cells .}}
+  <!--  -->
+  {{ template "cell" . }}
   <!--  -->
   {{ end }}
 </div>
