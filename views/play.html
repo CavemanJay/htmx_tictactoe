@@ -41,23 +41,22 @@
 <!--  -->
 
 {{ define "board" }}
-<!-- <div class="tic-tac-toe-board"> -->
-<div class="tic-tac-toe-board">
-  {{ range $cell := Cells .}}
-  <!--  -->
-  {{ block "cell" . }}
-  <div
-    class="tic-tac-toe-cell"
-    data-cell
-    hx-post="/move?i={{ .Index }}&id={{ .GameId }}"
-    hx-swap="outerHTML"
-  >
-    {{ .Symbol }}
-  </div>
-  {{ end }}
-  <!--  -->
-  {{ end }}
+<!--  -->
+{{ range $cell := Cells .}}
+<!--  -->
+{{ block "cell" . }}
+<div
+  class="tic-tac-toe-cell"
+  data-cell
+  hx-post="/move?i={{ .Index }}&id={{ .GameId }}"
+  hx-swap="outerHTML"
+>
+  {{ .Symbol }}
 </div>
+{{ end }}
+<!--  -->
+{{ end }}
+<!--  -->
 {{ end }}
 
 <!--  -->
@@ -67,7 +66,6 @@
   hx-ext="sse"
   sse-connect="/liveboard/{{.Id}}"
   sse-swap="game_refresh_{{.Id}}"
-  hx-swap="outerHTML"
   class="tic-tac-toe-board"
   sse-close="game_over"
 >
