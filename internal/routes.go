@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -99,9 +100,13 @@ listenerLoop:
 }
 
 func (this *Server) GameHandler(c echo.Context) error {
+	sessionId, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+	sessionIdStr := sessionId.String()
 	game, err := getGame(c)
 	if err != nil {
-		// return c.String(http.StatusInternalServerError, err.Error())
 		return err
 	}
 	clientId, _ := getClientId(c)
@@ -116,15 +121,13 @@ func (this *Server) GameHandler(c echo.Context) error {
 	if playerJoined {
 		this.GameStatus <- &GameStatusEvent{gameId: game.Id, info: "Player joined"}
 	}
-	this.GamePlay <- &GamePlayEvent{gameId: game.Id, info: fmt.Sprintf("Client %s joined game", clientId)}
+	this.GamePlay <- &GamePlayEvent{gameId: game.Id, info: fmt.Sprintf("Client %s joined game (%s)", clientId, sessionIdStr)}
 	clientListeners, exists := this.ActiveGameListeners[clientId]
 	if !exists {
 		clientListeners = make(map[chan<- *GamePlayEvent]struct{})
 		this.ActiveGameListeners[clientId] = clientListeners
 	}
 	clientListeners[gameListener] = struct{}{}
-	x := len(this.ActiveGameListeners)
-	fmt.Println("Active game listeners:", x)
 	this.mu.Unlock()
 
 	cleanup := func() {
@@ -137,7 +140,7 @@ func (this *Server) GameHandler(c echo.Context) error {
 		}
 		this.mu.Unlock()
 		close(gameListener)
-		this.GamePlay <- &GamePlayEvent{gameId: game.Id, info: fmt.Sprintf("Client %s disconnected", clientId)}
+		this.GamePlay <- &GamePlayEvent{gameId: game.Id, info: fmt.Sprintf("Client %s disconnected (%s)", clientId, sessionIdStr)}
 	}
 
 	processEvent := func(gameId tictactoe.GameId) bool {
@@ -167,12 +170,10 @@ func (this *Server) GameHandler(c echo.Context) error {
 		return true
 	}
 
-	ctx := c.Request().Context()
 listenerLoop:
 	for {
 		select {
-		case <-ctx.Done():
-			log.Println(ctx.Err())
+		case <-c.Request().Context().Done():
 			// log.Printf("Client %s disconnected", clientId)
 			cleanup()
 			return nil
