@@ -35,7 +35,7 @@
 {{if .Game.GameOver }} {{ template "history-controls" .Game }} {{end}}
 <!--  -->
 {{ template "layoutfooter" . }}
-<!--  -->
+<!-- <div hx-post="/games/{{.Game.Id}}/connected" hx-trigger="every 1s"></div> -->
 {{ end }}
 
 <!--  -->
@@ -65,8 +65,9 @@
 {{ define "live-board" }}
 <div
   hx-ext="sse"
-  sse-connect="/liveboard?id={{.Id}}"
+  sse-connect="/liveboard/{{.Id}}"
   sse-swap="game_refresh_{{.Id}}"
+  hx-swap="outerHTML"
   class="tic-tac-toe-board"
   sse-close="game_over"
 >
@@ -84,17 +85,21 @@
 <aside hx-swap-oob="true" id="client-list" hx class="sidebar">
   <h3>Players</h3>
   <div class="player-info">
-    <h5 class="{{if eq .Game.CurrentPlayer .Game.Player1}}fw-bold{{end}}">
-      Player 1 {{ if eq .Game.Player1 .ClientId }} (You) {{end}}
+    <h5
+      class="{{if eq .Game.CurrentPlayer.Name .Game.Player1.Name}}fw-bold{{end}}"
+    >
+      Player 1 {{ if eq .Game.Player1.Name .ClientId }} (You) {{end}}
     </h5>
-    <p>Client Id: {{.Game.Player1}}</p>
+    <p>Client Id: {{.Game.Player1.Name}}</p>
   </div>
   <div class="player-info">
     {{if .Game.Player2}}
-    <h5 class="{{if eq .Game.CurrentPlayer .Game.Player2}}fw-bold{{end}}">
-      Player 2 {{ if eq .Game.Player2 .ClientId }} (You) {{end}}
+    <h5
+      class="{{if eq .Game.CurrentPlayer.Name .Game.Player2.Name}}fw-bold{{end}}"
+    >
+      Player 2 {{ if eq .Game.Player2.Name .ClientId }} (You) {{end}}
     </h5>
-    <p>Client Id: {{.Game.Player2}}</p>
+    <p>Client Id: {{.Game.Player2.Name}}</p>
     {{else}}
     <span>Waiting for player 2...</span>
     {{end}}
@@ -104,12 +109,12 @@
     <ul class="list-group">
       {{ $clientId := .ClientId }}
       <!--  -->
-      {{ range $spec,$connected := .Game.Spectators }}
+      {{ range $spec := Spectators .Game }}
       <li
         class="list-group-item"
-        style="font-size: 0.8rem;color: {{if $connected}}green{{else}}red{{end}};"
+        style="font-size: 0.8rem;color: {{if $spec.Connected}}green{{else}}red{{end}};"
       >
-        {{ $spec }} {{ if eq $spec $clientId }}(You){{end}}
+        {{ $spec.Name }} {{ if eq $spec.Name $clientId }}(You){{end}}
       </li>
       {{ end }}
     </ul>

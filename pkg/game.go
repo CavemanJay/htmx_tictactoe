@@ -1,70 +1,106 @@
 package tictactoe
 
-import "errors"
+import (
+	"errors"
+
+	orderedmap "github.com/wk8/go-ordered-map/v2"
+)
 
 func init() {
+	player1 := &Participant{Id: "t1", Name: "Testing 1", Player: true}
+	player2 := &Participant{Id: "t2", Name: "Testing 2", Player: true}
+	spectator1 := &Participant{Id: "t3", Name: "Testing 3"}
+	game := &Game{
+		Id:    1,
+		Board: Board{value: 0b010101},
+		// Player1: "Testing 1",
+		// Player2: "Testing 2",
+		Player1:       player1,
+		Player2:       player2,
+		Winner:        player1,
+		currentPlayer: player1,
+		History:       []Board{{value: 0b01}, {value: 0b0101}},
+		// Spectators: map[string]bool{"Testing 3": false},
+		// Participants: orderedmap.New[string, bool](
+		// 	orderedmap.WithInitialData[string, bool](orderedmap.Pair[string, bool]{Key: "Testing 3", Value: false})),
+		// Participants: orderedmap.New[*Participant, bool](
+		// 	orderedmap.WithInitialData[*Participant, bool](orderedmap.Pair[*Participant, bool]{Key: spectator1, Value: false})),
+		Participants: orderedmap.New[ParticipantId, *Participant](
+			orderedmap.WithInitialData[ParticipantId, *Participant](orderedmap.Pair[ParticipantId, *Participant]{Key: spectator1.Id, Value: spectator1})),
+	}
+
+	Games = append(Games, game)
 	NewGame()
 }
 
 type GameId int
+type ParticipantId string
+
+type Participant struct {
+	Id        ParticipantId
+	Name      string
+	Player    bool
+	Connected bool
+}
 
 type Game struct {
-	Id            GameId
-	Board         Board
-	Player1       string
-	Player2       string
-	Winner        string
-	Spectators    map[string]bool
+	Id    GameId
+	Board Board
+	// Player1 string
+	// Player2 string
+	// Winner  string
+	Player1 *Participant
+	Player2 *Participant
+	Winner  *Participant
+	// Spectators    map[string]bool
+	// Spectators    *orderedmap.OrderedMap[string, bool]
+	// Participants  *orderedmap.OrderedMap[string, bool]
+	// Participants  *orderedmap.OrderedMap[*Participant, bool]
+	Participants  *orderedmap.OrderedMap[ParticipantId, *Participant]
 	History       []Board
-	currentPlayer string
+	currentPlayer *Participant
 }
 
 var count GameId = 1
 
-var Games = []*Game{
-	{
-		Id:         1,
-		Board:      Board{value: 0b010101},
-		Player1:    "Testing 1",
-		Player2:    "Testing 2",
-		Winner:     "Testing 1",
-		Spectators: map[string]bool{"Testing 3": false},
-	},
-}
+var Games = []*Game{}
 
 func NewGame() *Game {
 	count++
 	game := &Game{
-		Id:         count,
-		Board:      Board{},
-		Spectators: make(map[string]bool),
+		Id:    count,
+		Board: Board{},
+		// Spectators: make(map[string]bool),
+		// Spectators: orderedmap.New[string, bool](),
+		// Participants: orderedmap.New[*Participant, bool](),
+		Participants: orderedmap.New[ParticipantId, *Participant](),
 	}
 	Games = append(Games, game)
 	return game
 }
 
 func (g *Game) Info() string {
-	if g.Winner != "" {
-		return "Player " + g.Winner + " wins!"
+	if g.Winner != nil {
+		return "Player " + g.Winner.Name + " wins!"
 	}
 
-	if g.Player1 == "" && g.Player2 == "" {
+	if g.Player1 == nil && g.Player2 == nil {
 		return "Waiting for players"
-	} else if g.Player2 == "" {
+	} else if g.Player2 == nil {
 		return "Waiting for player 2"
 	}
 
-	return "Playing " + g.Player1 + " vs " + g.Player2
+	return "Playing " + g.Player1.Name + " vs " + g.Player2.Name
 }
 
 func (g *Game) PlayStatus() string {
-	if g.Winner != "" {
-		return "Game over! " + g.Winner + " wins!"
+	if g.Winner != nil {
+		return "Game over! " + g.Winner.Name + " wins!"
 	}
 
-	if g.Player1 == "" {
+	if g.Player1 == nil {
 		return "Waiting for players"
-	} else if g.Player2 == "" {
+	} else if g.Player2 == nil {
 		return "Waiting for player 2"
 	}
 
@@ -75,27 +111,44 @@ func (g *Game) PlayStatus() string {
 	return "Current player: " + displayName
 }
 
-func (g *Game) Join(client string) {
-	if g.Player1 == client || g.Player2 == client {
-		return
+// Returns true if the client that joined is a player
+func (g *Game) Join(clientId ParticipantId, name string) bool {
+	if g.Player1 != nil && g.Player1.Id == clientId || g.Player2 != nil && g.Player2.Id == clientId {
+		return false
 	}
 
-	if g.Player1 == "" {
-		g.Player1 = client
-	} else if g.Player2 == "" {
-		g.Player2 = client
-		g.currentPlayer = g.Player1
-	} else {
-		// g.Spectators = append(g.Spectators, client)
-		g.Spectators[client] = true
+	if g.Player1 == nil {
+		g.Player1 = g.addParticipant(clientId, name, true)
+		return true
 	}
+
+	if g.Player2 == nil {
+		g.Player2 = g.addParticipant(clientId, name, true)
+		g.currentPlayer = g.Player1
+		return true
+	}
+
+	if p, exists := g.Participants.Get(clientId); exists {
+		p.Connected = true
+		return false
+	}
+
+	g.addParticipant(clientId, name, false)
+	return false
 }
 
-func (g *Game) PlayMove(player int, index int, c chan<- GameId) error {
-	if g.Winner != "" {
+func (g *Game) addParticipant(id ParticipantId, name string, isPlayer bool) *Participant {
+	participant := &Participant{Id: id, Name: name, Player: isPlayer, Connected: true}
+	g.Participants.Set(participant.Id, participant)
+	return participant
+}
+
+// func (g *Game) PlayMove(player int, index int, c chan<- GameId) error {
+func (g *Game) PlayMove(player int, index int) error {
+	if g.GameOver() {
 		return errors.New("The game has already ended")
 	}
-	if g.currentPlayer == "" {
+	if !g.Started() {
 		return errors.New("Game has not started yet")
 	}
 	if g.Board.GetCell(index) != 0b00 {
@@ -111,11 +164,11 @@ func (g *Game) PlayMove(player int, index int, c chan<- GameId) error {
 	g.History = append(g.History, g.Board)
 	g.Board.setCell(index, player)
 
-	if c != nil {
-		defer func() {
-			c <- g.Id
-		}()
-	}
+	// if c != nil {
+	// 	defer func() {
+	// 		c <- g.Id
+	// 	}()
+	// }
 
 	if g.CheckWinner() {
 		g.Winner = g.currentPlayer
@@ -178,10 +231,18 @@ func (g *Game) CheckWinner() bool {
 	return false
 }
 
-func (g *Game) CurrentPlayer() string {
-	return g.currentPlayer
+// func (g *Game) CurrentPlayer() string {
+// 	return g.currentPlayer
+// }
+
+func (g *Game) CurrentPlayer() Participant {
+	return *g.currentPlayer
 }
 
 func (g *Game) GameOver() bool {
-	return g.Winner != "" || g.BoardFull()
+	return g.Winner != nil || g.BoardFull()
+}
+
+func (g *Game) Started() bool {
+	return g.currentPlayer != nil
 }
