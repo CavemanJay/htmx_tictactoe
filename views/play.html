@@ -32,6 +32,8 @@
 <!--  -->
 {{ template "live-board" .Game }}
 <!--  -->
+{{if .Game.GameOver }} {{ template "history-controls" .Game }} {{end}}
+<!--  -->
 {{ template "layoutfooter" . }}
 <!--  -->
 {{ end }}
@@ -82,12 +84,16 @@
 <aside hx-swap-oob="true" id="client-list" hx class="sidebar">
   <h3>Players</h3>
   <div class="player-info">
-    <h5 class="{{if eq .Game.CurrentPlayer .Game.Player1}}fw-bold{{end}}">Player 1 {{ if eq .Game.Player1 .ClientId }} (You) {{end}}</h5>
+    <h5 class="{{if eq .Game.CurrentPlayer .Game.Player1}}fw-bold{{end}}">
+      Player 1 {{ if eq .Game.Player1 .ClientId }} (You) {{end}}
+    </h5>
     <p>Client Id: {{.Game.Player1}}</p>
   </div>
   <div class="player-info">
     {{if .Game.Player2}}
-    <h5 class="{{if eq .Game.CurrentPlayer .Game.Player2}}fw-bold{{end}}">Player 2 {{ if eq .Game.Player2 .ClientId }} (You) {{end}}</h5>
+    <h5 class="{{if eq .Game.CurrentPlayer .Game.Player2}}fw-bold{{end}}">
+      Player 2 {{ if eq .Game.Player2 .ClientId }} (You) {{end}}
+    </h5>
     <p>Client Id: {{.Game.Player2}}</p>
     {{else}}
     <span>Waiting for player 2...</span>
@@ -98,10 +104,21 @@
     <ul class="list-group">
       {{ $clientId := .ClientId }}
       <!--  -->
-      {{ range .Game.Spectators }}
-      <li class="list-group-item" style="font-size: 0.8rem;">{{ . }} {{ if eq . $clientId }}(You){{end}}</li>
+      {{ range $spec,$connected := .Game.Spectators }}
+      <li
+        class="list-group-item"
+        style="font-size: 0.8rem;color: {{if $connected}}green{{else}}red{{end}};"
+      >
+        {{ $spec }} {{ if eq $spec $clientId }}(You){{end}}
+      </li>
       {{ end }}
     </ul>
   </div>
 </aside>
+{{ end }}
+
+<!--  -->
+
+{{ define "history-controls" }}
+<div id="history-controls" hx-swap-oob="true">hello</div>
 {{ end }}

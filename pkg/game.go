@@ -7,25 +7,37 @@ func init() {
 }
 
 type GameId int
+
 type Game struct {
 	Id            GameId
 	Board         Board
 	Player1       string
 	Player2       string
 	Winner        string
-	Spectators    []string
+	Spectators    map[string]bool
+	History       []Board
 	currentPlayer string
 }
 
-var count GameId = 0
+var count GameId = 1
 
-var Games = []*Game{}
+var Games = []*Game{
+	{
+		Id:         1,
+		Board:      Board{value: 0b010101},
+		Player1:    "Testing 1",
+		Player2:    "Testing 2",
+		Winner:     "Testing 1",
+		Spectators: map[string]bool{"Testing 3": false},
+	},
+}
 
 func NewGame() *Game {
 	count++
 	game := &Game{
-		Id:    count,
-		Board: Board{},
+		Id:         count,
+		Board:      Board{},
+		Spectators: make(map[string]bool),
 	}
 	Games = append(Games, game)
 	return game
@@ -63,18 +75,19 @@ func (g *Game) PlayStatus() string {
 	return "Current player: " + displayName
 }
 
-func (g *Game) Join(player string) {
-	if g.Player1 == player || g.Player2 == player {
+func (g *Game) Join(client string) {
+	if g.Player1 == client || g.Player2 == client {
 		return
 	}
 
 	if g.Player1 == "" {
-		g.Player1 = player
+		g.Player1 = client
 	} else if g.Player2 == "" {
-		g.Player2 = player
+		g.Player2 = client
 		g.currentPlayer = g.Player1
 	} else {
-		g.Spectators = append(g.Spectators, player)
+		// g.Spectators = append(g.Spectators, client)
+		g.Spectators[client] = true
 	}
 }
 
@@ -95,6 +108,7 @@ func (g *Game) PlayMove(player int, index int, c chan<- GameId) error {
 		return errors.New("The board is full")
 	}
 
+	g.History = append(g.History, g.Board)
 	g.Board.setCell(index, player)
 
 	if c != nil {
@@ -134,7 +148,6 @@ func (g *Game) BoardFull() bool {
 }
 
 func (g *Game) CheckWinner() bool {
-
 	// Horizontal
 	for i := 0; i < 9; i++ {
 		row := g.Board.GetCell(i) & g.Board.GetCell(i+1) & g.Board.GetCell(i+2)
@@ -167,4 +180,8 @@ func (g *Game) CheckWinner() bool {
 
 func (g *Game) CurrentPlayer() string {
 	return g.currentPlayer
+}
+
+func (g *Game) GameOver() bool {
+	return g.Winner != "" || g.BoardFull()
 }

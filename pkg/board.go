@@ -13,7 +13,6 @@ type Cell struct {
 
 type Board struct {
 	value int
-	bin   string
 }
 
 func NewBoard() *Board {

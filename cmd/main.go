@@ -330,6 +330,9 @@ func main() {
 			participants, exists := gameParticipants[game.Id]
 			if exists {
 				gameParticipants[game.Id] = removeElement(participants, clientId)
+				game.Spectators[clientId] = false
+				// Notify of game update
+				gamePlay <- game.Id
 			} else {
 				log.Println("Could not retrieve participants for game", game.Id)
 			}
@@ -347,17 +350,19 @@ func main() {
 			c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "board", game, c)
 			c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "game-status", game, c)
 			c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "client-list", GamePage{Game: game, ClientId: clientId}, c)
+			if game.GameOver() {
+				c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "history-controls", game, c)
+			}
 			w.Write([]byte("data: " + templateBuf.String() + "\n\n"))
 			c.Response().Flush()
 
-			if game.Winner != "" {
-				w.Write([]byte("event: game_over\n"))
-				w.Write([]byte("data: \n\n"))
-				c.Response().Flush()
-
-				cleanup()
-				return false
-			}
+			// if game.GameOver() {
+			// 	w.Write([]byte("event: game_over\n"))
+			// 	w.Write([]byte("data: \n\n"))
+			// 	c.Response().Flush()
+			// 	cleanup()
+			// 	return false
+			// }
 
 			return true
 		}
@@ -411,6 +416,7 @@ func main() {
 		if !isPlayer1 {
 			playerValue = 0b10
 		}
+
 		err = game.PlayMove(playerValue, cellIdx, gamePlay)
 		fmt.Println(game.Board.String())
 		if err != nil {
