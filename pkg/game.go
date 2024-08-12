@@ -44,18 +44,11 @@ type Participant struct {
 }
 
 type Game struct {
-	Id    GameId
-	Board Board
-	// Player1 string
-	// Player2 string
-	// Winner  string
-	Player1 *Participant
-	Player2 *Participant
-	Winner  *Participant
-	// Spectators    map[string]bool
-	// Spectators    *orderedmap.OrderedMap[string, bool]
-	// Participants  *orderedmap.OrderedMap[string, bool]
-	// Participants  *orderedmap.OrderedMap[*Participant, bool]
+	Id            GameId
+	Board         Board
+	Player1       *Participant
+	Player2       *Participant
+	Winner        *Participant
 	Participants  *orderedmap.OrderedMap[ParticipantId, *Participant]
 	History       []Board
 	currentPlayer *Participant
@@ -68,11 +61,8 @@ var Games = []*Game{}
 func NewGame() *Game {
 	count++
 	game := &Game{
-		Id:    count,
-		Board: Board{},
-		// Spectators: make(map[string]bool),
-		// Spectators: orderedmap.New[string, bool](),
-		// Participants: orderedmap.New[*Participant, bool](),
+		Id:           count,
+		Board:        Board{},
 		Participants: orderedmap.New[ParticipantId, *Participant](),
 	}
 	Games = append(Games, game)
@@ -246,3 +236,51 @@ func (g *Game) GameOver() bool {
 func (g *Game) Started() bool {
 	return g.currentPlayer != nil
 }
+
+func (g *Game) Player1Name() string {
+	if g.Player1 == nil {
+		return ""
+	}
+	return g.Player1.Name
+}
+
+func (g *Game) Player2Name() string {
+	if g.Player2 == nil {
+		return ""
+	}
+	return g.Player2.Name
+}
+
+// Returns the last move played in format (player, cell)
+func (g *Game) LastMove() (int, int) {
+
+	if len(g.History) == 0 {
+		return -1, 1
+	}
+
+	// bin := func(i int) string {
+	// 	return fmt.Sprintf("%018b", i)
+	// }
+
+	lastBoard := g.History[len(g.History)-1].value
+	diff := g.Board.value ^ lastBoard
+
+	if diff&(diff-1) != 0 {
+		panic("More than 2 bits changed between boards")
+	}
+
+	for i := 0; i < 2*9; i += 2 {
+		shifted := (diff >> i)
+		cellValue := shifted & 0b11
+		if cellValue != 0 {
+			// Found two adjacent bits differing
+			cellIndex := i / 2
+			player := cellValue
+			return player, cellIndex
+		}
+	}
+
+	return -1, -1
+}
+
+func UNUSED(x ...interface{}) {}

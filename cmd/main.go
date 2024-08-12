@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-var funcs = template.FuncMap{
+var templateFuncs = template.FuncMap{
 	"Iterate": func(count uint) []uint {
 		var i uint
 		var Items []uint
@@ -70,7 +70,7 @@ func (t *Templates) Render(w io.Writer, name string, data interface{}, c echo.Co
 
 func newTemplate() *Templates {
 	return &Templates{
-		templates: template.Must(template.New("all_templates").Funcs(funcs).ParseGlob("views/*.html")),
+		templates: template.Must(template.New("all_templates").Funcs(templateFuncs).ParseGlob("views/*.html")),
 	}
 }
 
@@ -87,7 +87,7 @@ func removeElement(slice []string, element string) []string {
 
 func main() {
 	e := echo.New()
-	if false {
+	if true {
 		e.Use(middleware.Logger())
 	}
 	e.Renderer = newTemplate()
@@ -105,6 +105,15 @@ func main() {
 	e.GET("/gameboard", server.BoardHandler)
 	e.GET("/livegamelist", server.LiveGameListHandler)
 	e.GET("/liveboard/:id", server.GameHandler)
+	e.GET("/is-this-me", func(c echo.Context) error {
+		clientId, _ := server.GetClientId(c)
+		query := c.QueryParam("id")
+		if query == string(clientId) {
+			return c.String(200, "(You)")
+		}
+
+		return c.String(200, "")
+	})
 	e.POST("/newgame", server.NewGameHandler)
 	e.POST("/move", server.PlayerMoveHandler)
 	e.Logger.Fatal(e.Start(":42069"))

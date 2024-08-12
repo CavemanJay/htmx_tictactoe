@@ -10,10 +10,11 @@
       href="/css/lib/bootstrap/dist/css/bootstrap.min.css"
     />
     <link rel="stylesheet" href="/css/index.css" />
-    <script src="https://unpkg.com/htmx.org@2.0.1"></script>
+    <!-- <script src="https://unpkg.com/htmx.org@2.0.1"></script> -->
+    <script src="https://unpkg.com/htmx.org@2.0.1/dist/htmx.js"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js"></script>
   </head>
-  <body>
+  <body hx-boost="true">
     <header>
       <nav
         class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow"

@@ -1,127 +1,113 @@
 {{ define "play" }}
 <!--  -->
 {{ template "layoutheader" . }}
-
 <style>
-  .sidebar {
-    /* height: 90vh; */
-    height: 100%;
-    width: 250px;
-    position: absolute;
-    /* top: 40px; */
-    left: 0;
-    background-color: #f8f9fa;
-    padding: 15px;
-  }
   main {
     margin-left: 250px;
   }
-  .player-info {
-    margin-bottom: 20px;
-  }
-  .list-group-item {
-    border: none;
-  }
 </style>
 
-{{ template "client-list" . }}
-<!--  -->
-{{ block "game-status" .Game }}
-<p id="gameStatus" hx-swap-oob="true">{{ .PlayStatus }}</p>
+<div hx-ext="sse" sse-connect="/liveboard/{{.Game.Id}}" sse-swap="first-join">
+  {{block "play-partial" .}}
+  <!--  -->
+  {{ block "client-list" . }}
+  <aside
+    id="client-list"
+    class="sidebar"
+    sse-swap="clients"
+    hx-swap="outerHTML"
+  >
+    <div>
+      <h3>Players</h3>
+      <div class="player-info">
+        <h5
+          class="{{if and (.Game.Started) (eq .Game.CurrentPlayer.Name .Game.Player1.Name)}}fw-bold{{end}}"
+        >
+          Player 1 {{ if eq .Game.Player1Name .ClientId }} (You) {{end}}
+        </h5>
+        <p>Client Id: {{.Game.Player1Name}}</p>
+      </div>
+      <div class="player-info">
+        {{if .Game.Player2}}
+        <h5
+          class="{{if and (.Game.CurrentPlayer) (eq .Game.CurrentPlayer.Name .Game.Player2.Name)}}fw-bold{{end}}"
+        >
+          Player 2 {{ if eq .Game.Player2Name .ClientId }} (You) {{end}}
+        </h5>
+        <p>Client Id: {{.Game.Player2Name}}</p>
+        {{else}}
+        <span>Waiting for player 2...</span>
+        {{end}}
+      </div>
+    </div>
+    <div>
+      <h4>Spectators</h4>
+      <ul class="list-group">
+        {{ $clientId := .ClientId }}
+        <!--  -->
+        {{ range $spec := Spectators .Game }}
+        <!--  -->
+        {{ block "spectator" $spec }}
+        <li
+          id="spectator_{{ .Id }}"
+          class="list-group-item spectator {{if .Connected}}connected{{end}}"
+        >
+          {{ .Name }}
+          <span hx-trigger="load" hx-get="/is-this-me?id={{.Id}}"></span>
+        </li>
+        {{ end }}
+        <!--  -->
+        {{ end }}
+      </ul>
+    </div>
+  </aside>
+  {{ end }}
+  <!--  -->
+  <!--  -->
+  {{ block "board" .Game }}
+  <div sse-swap="board" class="tic-tac-toe-board" hx-swap="outerHTML">
+    {{ range $cell := Cells .}}
+    <!--  -->
+    <div
+      class="tic-tac-toe-cell"
+      data-cell
+      hx-post="/move?i={{ .Index }}&id={{ .GameId }}"
+      hx-swap="none"
+    >
+      {{ block "cell" . }}
+      <span id="cell_{{.Index}}" sse-swap="cell_{{ .Index }}" hx-swap="outerHTML">
+        {{ .Symbol }}
+      </span>
+      {{ end }}
+    </div>
+    <!--  -->
+    {{ end }}
+    <!--  -->
+    {{ end }}
+  </div>
+  {{if .Game.GameOver }} {{ template "history-controls" .Game }} {{end}}
+</div>
 {{ end }}
-<!--  -->
-{{ template "live-board" .Game }}
-<!--  -->
-{{if .Game.GameOver }} {{ template "history-controls" .Game }} {{end}}
 <!--  -->
 {{ template "layoutfooter" . }}
-<!-- <div hx-post="/games/{{.Game.Id}}/connected" hx-trigger="every 1s"></div> -->
-{{ end }}
-
 <!--  -->
-
-{{ define "board" }}
-<!--  -->
-{{ range $cell := Cells .}}
-<!--  -->
-{{ block "cell" . }}
-<div
-  class="tic-tac-toe-cell"
-  data-cell
-  hx-post="/move?i={{ .Index }}&id={{ .GameId }}"
-  hx-swap="outerHTML"
->
-  {{ .Symbol }}
-</div>
-{{ end }}
-<!--  -->
-{{ end }}
-<!--  -->
-{{ end }}
-
-<!--  -->
-
-{{ define "live-board" }}
-<div
-  hx-ext="sse"
-  sse-connect="/liveboard/{{.Id}}"
-  sse-swap="game_refresh_{{.Id}}"
-  class="tic-tac-toe-board"
-  sse-close="game_over"
->
-  {{ range $cell := Cells .}}
-  <!--  -->
-  {{ template "cell" . }}
-  <!--  -->
-  {{ end }}
-</div>
-{{ end }}
-
-<!--  -->
-
-{{ define "client-list" }}
-<aside hx-swap-oob="true" id="client-list" hx class="sidebar">
-  <h3>Players</h3>
-  <div class="player-info">
-    <h5
-      class="{{if eq .Game.CurrentPlayer.Name .Game.Player1.Name}}fw-bold{{end}}"
-    >
-      Player 1 {{ if eq .Game.Player1.Name .ClientId }} (You) {{end}}
-    </h5>
-    <p>Client Id: {{.Game.Player1.Name}}</p>
-  </div>
-  <div class="player-info">
-    {{if .Game.Player2}}
-    <h5
-      class="{{if eq .Game.CurrentPlayer.Name .Game.Player2.Name}}fw-bold{{end}}"
-    >
-      Player 2 {{ if eq .Game.Player2.Name .ClientId }} (You) {{end}}
-    </h5>
-    <p>Client Id: {{.Game.Player2.Name}}</p>
-    {{else}}
-    <span>Waiting for player 2...</span>
-    {{end}}
-  </div>
-  <div>
-    <h4>Spectators</h4>
-    <ul class="list-group">
-      {{ $clientId := .ClientId }}
-      <!--  -->
-      {{ range $spec := Spectators .Game }}
-      <li
-        class="list-group-item"
-        style="font-size: 0.8rem;color: {{if $spec.Connected}}green{{else}}red{{end}};"
-      >
-        {{ $spec.Name }} {{ if eq $spec.Name $clientId }}(You){{end}}
-      </li>
-      {{ end }}
-    </ul>
-  </div>
-</aside>
 {{ end }}
 
 <!--  -->
 
 {{ define "history-controls" }}
 <div id="history-controls" hx-swap-oob="true">hello</div>
+{{ end }}
+
+<!--  -->
+
+{{ define "spectator-oob" }}
+<li
+  hx-swap-oob="true"
+  id="spectator_{{ .Id }}"
+  class="list-group-item spectator {{if .Connected}}connected{{end}}"
+>
+  {{ .Name }}
+  <span hx-trigger="load" hx-get="/is-this-me?id={{.Id}}"></span>
+</li>
 {{ end }}

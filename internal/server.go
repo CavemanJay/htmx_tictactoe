@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"jay/tictactoe/internal/events"
 	tictactoe "jay/tictactoe/pkg"
 	"log"
 	"net/http"
@@ -16,9 +17,12 @@ import (
 const COOKIENAME = "tictactoe"
 
 type GamePlayEvent struct {
-	gameId tictactoe.GameId
-	info   string
+	gameId       tictactoe.GameId
+	info         string
+	eventType    events.GamePlayEventType
+	// SseEventName string
 }
+
 
 type GameStatusEvent struct {
 	gameId tictactoe.GameId
@@ -117,7 +121,7 @@ func setClientCookie(c echo.Context) (tictactoe.ParticipantId, error) {
 	return tictactoe.ParticipantId(cookie.Value), nil
 }
 
-func getClientId(c echo.Context) (tictactoe.ParticipantId, error) {
+func (this *Server) GetClientId(c echo.Context) (tictactoe.ParticipantId, error) {
 	cookie, err := c.Cookie(COOKIENAME)
 	if err != nil {
 		return "", err
