@@ -75,7 +75,7 @@
       hx-swap="none"
     >
       {{ block "cell" . }}
-      <span id="cell_{{.Index}}" sse-swap="cell_{{ .Index }}" hx-swap="outerHTML">
+      <span class="drop-in" id="cell_{{.Index}}" sse-swap="cell_{{ .Index }}" hx-swap="outerHTML">
         {{ .Symbol }}
       </span>
       {{ end }}

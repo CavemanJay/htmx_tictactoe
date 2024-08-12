@@ -24,7 +24,7 @@
 
 {{ define "game-list" }}
 <!--  -->
-{{ range .Games }}
+{{ range Games . }}
 <!--  -->
 {{ template "game-card" . }}
 <!--  -->
@@ -36,7 +36,7 @@
 
 {{ define "game-card" }}
 <div class="card">
-  <a hx-push-url="true" href="/games/{{.Id}}"> {{ .Id }} </a>
+  <a href="/games/{{.Id}}"> {{ .Id }} </a>
   <p>{{ .Info }}</p>
 </div>
 {{ end }}

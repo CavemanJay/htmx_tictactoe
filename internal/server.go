@@ -9,36 +9,41 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 const COOKIENAME = "tictactoe"
+const DEBUG = true
 
 type GamePlayEvent struct {
-	gameId       tictactoe.GameId
-	info         string
-	eventType    events.GamePlayEventType
+	gameId    tictactoe.GameId
+	info      string
+	eventType events.GamePlayEventType
 	// SseEventName string
 }
-
 
 type GameStatusEvent struct {
 	gameId tictactoe.GameId
 	info   string
 }
 
-type Server struct {
-	ActiveGameListeners map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}
-	IndexListeners      map[chan<- *GameStatusEvent]struct{}
-	GamePlay            chan *GamePlayEvent
-	GameStatus          chan *GameStatusEvent
-	mu                  sync.Mutex
+type ServerGame struct {
+	*tictactoe.Game
+	Listeners map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}
 }
 
-type GameList struct {
-	Games []*tictactoe.Game
+type Server struct {
+	// ActiveGameListeners map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}
+	Games          map[tictactoe.GameId]*ServerGame
+	IndexListeners map[chan<- *GameStatusEvent]struct{}
+	GamePlay       chan *GamePlayEvent
+	GameStatus     chan *GameStatusEvent
+	mu             sync.Mutex
+	gameCount      atomic.Uint32
 }
 
 type GamePage struct {
@@ -46,19 +51,56 @@ type GamePage struct {
 	ClientId tictactoe.ParticipantId
 }
 
-func newGameList() GameList {
-	return GameList{
-		Games: tictactoe.Games,
+func (this *Server) newServerGame() *ServerGame {
+	game := tictactoe.NewGame(
+		tictactoe.GameId(this.gameCount.Add(1)),
+	)
+	return &ServerGame{
+		Game:      game,
+		Listeners: make(map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}),
 	}
 }
 
 func NewServer() *Server {
-	return &Server{
-		ActiveGameListeners: make(map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}),
-		IndexListeners:      make(map[chan<- *GameStatusEvent]struct{}),
-		GamePlay:            make(chan *GamePlayEvent, 5),
-		GameStatus:          make(chan *GameStatusEvent, 5),
+
+	s := &Server{
+		Games:          make(map[tictactoe.GameId]*ServerGame),
+		IndexListeners: make(map[chan<- *GameStatusEvent]struct{}),
+		GamePlay:       make(chan *GamePlayEvent, 5),
+		GameStatus:     make(chan *GameStatusEvent, 5),
 	}
+
+	player1 := &tictactoe.Participant{Id: "t1", Name: "Testing 1", Player: true}
+	player2 := &tictactoe.Participant{Id: "t2", Name: "Testing 2", Player: true}
+	spectator1 := &tictactoe.Participant{Id: "t3", Name: "Testing 3"}
+	g := tictactoe.Game{
+		Id:            0,
+		Board:         *tictactoe.NewBoardWithValue(0b010101),
+		Player1:       player1,
+		Player2:       player2,
+		Winner:        player1,
+		CurrentPlayer: player1,
+		History: []tictactoe.Board{
+			*tictactoe.NewBoardWithValue(0b01),
+			*tictactoe.NewBoardWithValue(0b0101),
+		},
+		Participants: orderedmap.New[tictactoe.ParticipantId, *tictactoe.Participant](
+			orderedmap.WithInitialData(orderedmap.Pair[tictactoe.ParticipantId, *tictactoe.Participant]{
+				Key:   spectator1.Id,
+				Value: spectator1,
+			})),
+	}
+
+	sg := &ServerGame{
+		Game:      &g,
+		Listeners: make(map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}),
+	}
+
+	s.Games[sg.Id] = sg
+	sg = s.newServerGame()
+	s.Games[sg.Id] = sg
+
+	return s
 }
 
 func (this *Server) ClientIdMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -83,7 +125,8 @@ func (this *Server) ListenForGameplayEvents() {
 	for event := range this.GamePlay {
 		log.Println("Game play event received:", event)
 		this.mu.Lock()
-		for _, listeners := range this.ActiveGameListeners {
+		game := this.Games[event.gameId]
+		for _, listeners := range game.Listeners {
 			for listener := range listeners {
 				listener <- event
 			}
@@ -129,7 +172,7 @@ func (this *Server) GetClientId(c echo.Context) (tictactoe.ParticipantId, error)
 	return tictactoe.ParticipantId(cookie.Value), nil
 }
 
-func getGame(c echo.Context) (*tictactoe.Game, error) {
+func (this *Server) getGame(c echo.Context) (*ServerGame, error) {
 	idStr := c.Param("id")
 	idQueryStr := c.QueryParam("id")
 	if idStr == "" {
@@ -139,10 +182,9 @@ func getGame(c echo.Context) (*tictactoe.Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	gameId--
-	if gameId < 0 || gameId >= len(tictactoe.Games) {
-		return nil, errors.New("Game not found")
-		// return nil, c.String(http.StatusNotFound, "Game not found")
+	if game, exists := this.Games[tictactoe.GameId(gameId)]; exists {
+		return game, nil
 	}
-	return tictactoe.Games[gameId], nil
+
+	return nil, errors.New("Game not found")
 }

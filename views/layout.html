@@ -9,10 +9,13 @@
       rel="stylesheet"
       href="/css/lib/bootstrap/dist/css/bootstrap.min.css"
     />
-    <link rel="stylesheet" href="/css/index.css" />
+    <link rel="stylesheet" href="/css/index.css?v={{ Rand }}" />
     <!-- <script src="https://unpkg.com/htmx.org@2.0.1"></script> -->
     <script src="https://unpkg.com/htmx.org@2.0.1/dist/htmx.js"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js"></script>
+    <script>
+      htmx.config.globalViewTransitions = true;
+    </script>
   </head>
   <body hx-boost="true">
     <header>

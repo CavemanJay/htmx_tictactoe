@@ -7,30 +7,6 @@ import (
 )
 
 func init() {
-	player1 := &Participant{Id: "t1", Name: "Testing 1", Player: true}
-	player2 := &Participant{Id: "t2", Name: "Testing 2", Player: true}
-	spectator1 := &Participant{Id: "t3", Name: "Testing 3"}
-	game := &Game{
-		Id:    1,
-		Board: Board{value: 0b010101},
-		// Player1: "Testing 1",
-		// Player2: "Testing 2",
-		Player1:       player1,
-		Player2:       player2,
-		Winner:        player1,
-		currentPlayer: player1,
-		History:       []Board{{value: 0b01}, {value: 0b0101}},
-		// Spectators: map[string]bool{"Testing 3": false},
-		// Participants: orderedmap.New[string, bool](
-		// 	orderedmap.WithInitialData[string, bool](orderedmap.Pair[string, bool]{Key: "Testing 3", Value: false})),
-		// Participants: orderedmap.New[*Participant, bool](
-		// 	orderedmap.WithInitialData[*Participant, bool](orderedmap.Pair[*Participant, bool]{Key: spectator1, Value: false})),
-		Participants: orderedmap.New[ParticipantId, *Participant](
-			orderedmap.WithInitialData[ParticipantId, *Participant](orderedmap.Pair[ParticipantId, *Participant]{Key: spectator1.Id, Value: spectator1})),
-	}
-
-	Games = append(Games, game)
-	NewGame()
 }
 
 type GameId int
@@ -51,21 +27,15 @@ type Game struct {
 	Winner        *Participant
 	Participants  *orderedmap.OrderedMap[ParticipantId, *Participant]
 	History       []Board
-	currentPlayer *Participant
+	CurrentPlayer *Participant
 }
 
-var count GameId = 1
-
-var Games = []*Game{}
-
-func NewGame() *Game {
-	count++
+func NewGame(id GameId) *Game {
 	game := &Game{
-		Id:           count,
+		Id:           id,
 		Board:        Board{},
 		Participants: orderedmap.New[ParticipantId, *Participant](),
 	}
-	Games = append(Games, game)
 	return game
 }
 
@@ -95,7 +65,7 @@ func (g *Game) PlayStatus() string {
 	}
 
 	displayName := "Player 1"
-	if g.currentPlayer == g.Player2 {
+	if g.CurrentPlayer == g.Player2 {
 		displayName = "Player 2"
 	}
 	return "Current player: " + displayName
@@ -114,7 +84,7 @@ func (g *Game) Join(clientId ParticipantId, name string) bool {
 
 	if g.Player2 == nil {
 		g.Player2 = g.addParticipant(clientId, name, true)
-		g.currentPlayer = g.Player1
+		g.CurrentPlayer = g.Player1
 		return true
 	}
 
@@ -144,7 +114,7 @@ func (g *Game) PlayMove(player int, index int) error {
 	if g.Board.GetCell(index) != 0b00 {
 		return errors.New("Cell not empty")
 	}
-	if (player == 1 && g.currentPlayer != g.Player1) || (player == 2 && g.currentPlayer != g.Player2) {
+	if (player == 1 && g.CurrentPlayer != g.Player1) || (player == 2 && g.CurrentPlayer != g.Player2) {
 		return errors.New("Not your turn")
 	}
 	if g.BoardFull() {
@@ -161,14 +131,14 @@ func (g *Game) PlayMove(player int, index int) error {
 	// }
 
 	if g.CheckWinner() {
-		g.Winner = g.currentPlayer
+		g.Winner = g.CurrentPlayer
 		return nil
 	}
 
-	if g.currentPlayer == g.Player1 {
-		g.currentPlayer = g.Player2
+	if g.CurrentPlayer == g.Player1 {
+		g.CurrentPlayer = g.Player2
 	} else {
-		g.currentPlayer = g.Player1
+		g.CurrentPlayer = g.Player1
 	}
 	return nil
 }
@@ -221,20 +191,16 @@ func (g *Game) CheckWinner() bool {
 	return false
 }
 
-// func (g *Game) CurrentPlayer() string {
-// 	return g.currentPlayer
+// func (g *Game) CurrentPlayer() Participant {
+// 	return *g.currentPlayer
 // }
-
-func (g *Game) CurrentPlayer() Participant {
-	return *g.currentPlayer
-}
 
 func (g *Game) GameOver() bool {
 	return g.Winner != nil || g.BoardFull()
 }
 
 func (g *Game) Started() bool {
-	return g.currentPlayer != nil
+	return g.CurrentPlayer != nil
 }
 
 func (g *Game) Player1Name() string {

@@ -5,6 +5,8 @@ import (
 	"io"
 	server "jay/tictactoe/internal"
 	tictactoe "jay/tictactoe/pkg"
+	"math/rand"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -58,6 +60,20 @@ var templateFuncs = template.FuncMap{
 		}()
 		return ch
 	},
+	"Games": func(server server.Server) <-chan *tictactoe.Game {
+		ch := make(chan *tictactoe.Game, len(server.Games))
+		go func() {
+			for _, game := range server.Games {
+				ch <- game.Game
+			}
+			close(ch)
+		}()
+		return ch
+	},
+	"Rand": func() int {
+		rand.Seed(time.Now().UnixNano())
+		return rand.Intn(100)
+	},
 }
 
 type Templates struct {
@@ -101,7 +117,7 @@ func main() {
 	e.GET("/", server.IndexHandler)
 	e.GET("/games/:id", server.GameDisplayHandler)
 	e.GET("/gamelist", server.GameListHandler)
-	e.GET("/gamestatus", server.GameStatusHandler)
+	// e.GET("/gamestatus", server.GameStatusHandler)
 	e.GET("/gameboard", server.BoardHandler)
 	e.GET("/livegamelist", server.LiveGameListHandler)
 	e.GET("/liveboard/:id", server.GameHandler)

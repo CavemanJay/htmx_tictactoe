@@ -15,6 +15,12 @@ type Board struct {
 	value int
 }
 
+func NewBoardWithValue(val int) *Board {
+	return &Board{
+		value: val,
+	}
+}
+
 func NewBoard() *Board {
 	return &Board{
 		value: 0,
