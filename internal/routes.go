@@ -44,7 +44,7 @@ func (this *Server) GameHistoryHandler(c echo.Context) error {
 		CanGoBack:     offset*-1 < len(game.History),
 		CanGoForward:  offset < 0,
 		AtCurrent:     offset == 0,
-		Oob: true,
+		Oob:           true,
 	}
 	type ControlsData struct {
 		tictactoe.Board
@@ -317,6 +317,10 @@ func processGameEvent(c echo.Context, event *GamePlayEvent, game *ServerGame, cl
 
 		time.Sleep(200 * time.Millisecond)
 		sendSse(fmt.Sprintf("cell_%d", idx), t, c)
+
+		if game.GameOver() {
+			sendSse("game_over", "", c)
+		}
 
 	default:
 		log.Println("Unhandled event", event)

@@ -89,39 +89,41 @@
     <!--  -->
     {{ end }}
   </div>
-  {{if .Game.GameOver }}
-  <!--  -->
-  {{ block "history-controls" History .Game }}
-  <div id="history-controls" class="btn-group d-flex justify-content-center">
-    <button
-      type="button"
-      class="btn btn-outline-secondary {{if ne .CanGoBack true}}disabled{{end}}"
-      hx-get="/games/{{.Id}}/history/{{.BackOffset}}"
-      hx-swap="outerHTML"
-      hx-target="closest div"
-    >
-      Previous
-    </button>
-    <button
-      type="button"
-      class="btn btn-outline-primary {{if eq .AtCurrent true}}disabled{{end}}"
-      hx-get="/games/{{.Id}}/history/0"
-      hx-swap="outerHTML"
-      hx-target="closest div"
-    >
-      Current
-    </button>
-    <button
-      type="button"
-      class="btn btn-outline-secondary {{if ne .CanGoForward true}}disabled{{end}}"
-      hx-get="/games/{{.Id}}/history/{{.ForwardOffset}}"
-      hx-swap="outerHTML"
-      hx-target="closest div"
-    >
-      Next
-    </button>
+  <div hx-trigger="sse:game_over" hx-get="/games/{{.Game.Id}}/history/0">
+    {{if .Game.GameOver }}
+    <!--  -->
+    {{ block "history-controls" History .Game }}
+    <div id="history-controls" class="btn-group d-flex justify-content-center">
+      <button
+        type="button"
+        class="btn btn-outline-secondary {{if ne .CanGoBack true}}disabled{{end}}"
+        hx-get="/games/{{.Id}}/history/{{.BackOffset}}"
+        hx-swap="outerHTML"
+        hx-target="closest div"
+      >
+        Previous
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-primary {{if eq .AtCurrent true}}disabled{{end}}"
+        hx-get="/games/{{.Id}}/history/0"
+        hx-swap="outerHTML"
+        hx-target="closest div"
+      >
+        Current
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-secondary {{if ne .CanGoForward true}}disabled{{end}}"
+        hx-get="/games/{{.Id}}/history/{{.ForwardOffset}}"
+        hx-swap="outerHTML"
+        hx-target="closest div"
+      >
+        Next
+      </button>
+    </div>
+    {{ end }}
   </div>
-  {{ end }}
   <!--  -->
   {{end}}
 </div>
