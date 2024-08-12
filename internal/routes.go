@@ -261,7 +261,7 @@ func processGameEvent(c echo.Context, event *GamePlayEvent, game *ServerGame, cl
 			panic(err)
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(200 * time.Millisecond)
 		sendSse(fmt.Sprintf("cell_%d", idx), t, c)
 
 	default:
