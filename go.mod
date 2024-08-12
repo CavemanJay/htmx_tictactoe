@@ -2,9 +2,11 @@ module jay/tictactoe
 
 go 1.22.6
 
-require github.com/labstack/echo/v4 v4.12.0
-
-require github.com/google/uuid v1.6.0
+require (
+	github.com/google/uuid v1.6.0
+	github.com/labstack/echo/v4 v4.12.0
+	github.com/wk8/go-ordered-map/v2 v2.1.8
+)
 
 require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
@@ -16,7 +18,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect

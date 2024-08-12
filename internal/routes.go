@@ -15,6 +15,59 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+type GameHistoryControls struct {
+	Id            tictactoe.GameId
+	BackOffset    int
+	ForwardOffset int
+	Offset        int
+	Oob           bool
+	CanGoForward  bool
+	CanGoBack     bool
+	AtCurrent     bool
+}
+
+func (this *Server) GameHistoryHandler(c echo.Context) error {
+	game, err := this.getGame(c)
+	if err != nil {
+		return err
+	}
+	offsetStr := c.Param("offset")
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		return err
+	}
+	gameHistoryControls := GameHistoryControls{
+		Id:            game.Id,
+		BackOffset:    offset - 1,
+		Offset:        offset,
+		ForwardOffset: offset + 1,
+		CanGoBack:     offset*-1 < len(game.History),
+		CanGoForward:  offset < 0,
+		AtCurrent:     offset == 0,
+		Oob: true,
+	}
+	type ControlsData struct {
+		tictactoe.Board
+		GameHistoryControls
+	}
+	board := game.Board
+	if offset < 0 {
+		board = game.History[len(game.History)+offset]
+	}
+	data := &ControlsData{board, gameHistoryControls}
+	err = c.Echo().Renderer.Render(
+		c.Response().Writer,
+		"board-history",
+		data,
+		c,
+	)
+	if err != nil {
+		return err
+	}
+
+	return c.Render(200, "history-controls", &gameHistoryControls)
+}
+
 func (this *Server) GameDisplayHandler(c echo.Context) error {
 	game, err := this.getGame(c)
 	if err != nil {
@@ -179,11 +232,12 @@ func (this *Server) NewGameHandler(c echo.Context) error {
 	// return c.Render(http.StatusOK, "game-card", game)
 }
 
-func (this *Server) BoardHandler(c echo.Context) error {
+func (this *Server) GameBoardHandler(c echo.Context) error {
 	game, err := this.getGame(c)
 	if err != nil {
 		return err
 	}
+	// c.Request().Header.Get("Hx-Request")
 	return c.Render(http.StatusOK, "board", game)
 }
 

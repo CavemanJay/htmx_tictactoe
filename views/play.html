@@ -63,9 +63,8 @@
   </aside>
   {{ end }}
   <!--  -->
-  <!--  -->
   {{ block "board" .Game }}
-  <div sse-swap="board" class="tic-tac-toe-board" hx-swap="outerHTML">
+  <div id="board" class="tic-tac-toe-board" hx-swap="outerHTML">
     {{ range $cell := Cells .}}
     <!--  -->
     <div
@@ -75,7 +74,12 @@
       hx-swap="none"
     >
       {{ block "cell" . }}
-      <span class="drop-in" id="cell_{{.Index}}" sse-swap="cell_{{ .Index }}" hx-swap="outerHTML">
+      <span
+        class="drop-in"
+        id="cell_{{.Index}}"
+        sse-swap="cell_{{ .Index }}"
+        hx-swap="outerHTML"
+      >
         {{ .Symbol }}
       </span>
       {{ end }}
@@ -85,18 +89,46 @@
     <!--  -->
     {{ end }}
   </div>
-  {{if .Game.GameOver }} {{ template "history-controls" .Game }} {{end}}
+  {{if .Game.GameOver }}
+  <!--  -->
+  {{ block "history-controls" History .Game }}
+  <div id="history-controls" class="btn-group d-flex justify-content-center">
+    <button
+      type="button"
+      class="btn btn-outline-secondary {{if ne .CanGoBack true}}disabled{{end}}"
+      hx-get="/games/{{.Id}}/history/{{.BackOffset}}"
+      hx-swap="outerHTML"
+      hx-target="closest div"
+    >
+      Previous
+    </button>
+    <button
+      type="button"
+      class="btn btn-outline-primary {{if eq .AtCurrent true}}disabled{{end}}"
+      hx-get="/games/{{.Id}}/history/0"
+      hx-swap="outerHTML"
+      hx-target="closest div"
+    >
+      Current
+    </button>
+    <button
+      type="button"
+      class="btn btn-outline-secondary {{if ne .CanGoForward true}}disabled{{end}}"
+      hx-get="/games/{{.Id}}/history/{{.ForwardOffset}}"
+      hx-swap="outerHTML"
+      hx-target="closest div"
+    >
+      Next
+    </button>
+  </div>
+  {{ end }}
+  <!--  -->
+  {{end}}
 </div>
 {{ end }}
 <!--  -->
 {{ template "layoutfooter" . }}
 <!--  -->
-{{ end }}
-
-<!--  -->
-
-{{ define "history-controls" }}
-<div id="history-controls" hx-swap-oob="true">hello</div>
 {{ end }}
 
 <!--  -->
@@ -111,3 +143,20 @@
   <span hx-trigger="load" hx-get="/is-this-me?id={{.Id}}"></span>
 </li>
 {{ end }}
+
+<!--  -->
+
+{{ define "board-history" }}
+<div
+  id="board"
+  hx-swap-oob="true"
+  class="tic-tac-toe-board"
+  hx-swap="outerHTML"
+>
+  {{ range $cell := CellsHistory .Board .Offset }}
+  <!--  -->
+  <div class="tic-tac-toe-cell" data-cell>{{ template "cell" . }}</div>
+  <!--  -->
+  {{ end }}
+</div>
+{{end}}

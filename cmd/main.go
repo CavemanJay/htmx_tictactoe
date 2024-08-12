@@ -6,7 +6,6 @@ import (
 	server "jay/tictactoe/internal"
 	tictactoe "jay/tictactoe/pkg"
 	"math/rand"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -46,6 +45,20 @@ var templateFuncs = template.FuncMap{
 		}()
 		return ch
 	},
+	"CellsHistory": func(board *tictactoe.Board, offset int) <-chan *tictactoe.Cell {
+		ch := make(chan *tictactoe.Cell)
+		go func() {
+			for i := 0; i < 9; i++ {
+				cell := &tictactoe.Cell{
+					Symbol: board.Symbol(uint(i)),
+					Index:  uint(i),
+				}
+				ch <- cell
+			}
+			close(ch)
+		}()
+		return ch
+	},
 	"Spectators": func(game *tictactoe.Game) <-chan *tictactoe.Participant {
 		ch := make(chan *tictactoe.Participant, game.Participants.Len())
 		go func() {
@@ -71,8 +84,20 @@ var templateFuncs = template.FuncMap{
 		return ch
 	},
 	"Rand": func() int {
-		rand.Seed(time.Now().UnixNano())
+		// rand.Seed(time.Now().UnixNano())
 		return rand.Intn(100)
+	},
+	"History": func(game *tictactoe.Game) *server.GameHistoryControls {
+		return &server.GameHistoryControls{
+			Id:            game.Id,
+			BackOffset:    -1,
+			ForwardOffset: 0,
+			CanGoForward:  false,
+			CanGoBack:     true,
+			Offset:        0,
+			Oob:           false,
+			AtCurrent:     true,
+		}
 	},
 }
 
@@ -116,9 +141,9 @@ func main() {
 	e.Use(server.ClientIdMiddleware)
 	e.GET("/", server.IndexHandler)
 	e.GET("/games/:id", server.GameDisplayHandler)
+	e.GET("/games/:id/history/:offset", server.GameHistoryHandler)
+	e.GET("/games/:id/board", server.GameBoardHandler)
 	e.GET("/gamelist", server.GameListHandler)
-	// e.GET("/gamestatus", server.GameStatusHandler)
-	e.GET("/gameboard", server.BoardHandler)
 	e.GET("/livegamelist", server.LiveGameListHandler)
 	e.GET("/liveboard/:id", server.GameHandler)
 	e.GET("/is-this-me", func(c echo.Context) error {
