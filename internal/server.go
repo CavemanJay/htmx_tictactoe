@@ -2,7 +2,7 @@ package server
 
 import (
 	"errors"
-	"jay/tictactoe/internal/events"
+	"jay/tictactoe/model"
 	tictactoe "jay/tictactoe/pkg"
 	"log"
 	"net/http"
@@ -19,55 +19,32 @@ import (
 const COOKIENAME = "tictactoe"
 const DEBUG = true
 
-type GamePlayEvent struct {
-	gameId    tictactoe.GameId
-	info      string
-	eventType events.GamePlayEventType
-	// SseEventName string
-}
-
-type GameStatusEvent struct {
-	gameId tictactoe.GameId
-	info   string
-}
-
-type ServerGame struct {
-	*tictactoe.Game
-	Listeners map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}
-}
-
 type Server struct {
-	// ActiveGameListeners map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}
-	Games          map[tictactoe.GameId]*ServerGame
-	IndexListeners map[chan<- *GameStatusEvent]struct{}
-	GamePlay       chan *GamePlayEvent
-	GameStatus     chan *GameStatusEvent
+	Games          map[tictactoe.GameId]*model.ServerGame
+	IndexListeners map[chan<- *model.GameStatusEvent]struct{}
+	GamePlay       chan *model.GamePlayEvent
+	GameStatus     chan *model.GameStatusEvent
 	mu             sync.Mutex
 	gameCount      atomic.Uint32
 }
 
-type GamePage struct {
-	Game     *tictactoe.Game
-	ClientId tictactoe.ParticipantId
-}
-
-func (this *Server) newServerGame() *ServerGame {
+func (this *Server) newServerGame() *model.ServerGame {
 	game := tictactoe.NewGame(
 		tictactoe.GameId(this.gameCount.Add(1)),
 	)
-	return &ServerGame{
+	return &model.ServerGame{
 		Game:      game,
-		Listeners: make(map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}),
+		Listeners: make(map[tictactoe.ParticipantId]map[chan<- *model.GamePlayEvent]struct{}),
 	}
 }
 
 func NewServer() *Server {
 
 	s := &Server{
-		Games:          make(map[tictactoe.GameId]*ServerGame),
-		IndexListeners: make(map[chan<- *GameStatusEvent]struct{}),
-		GamePlay:       make(chan *GamePlayEvent, 5),
-		GameStatus:     make(chan *GameStatusEvent, 5),
+		Games:          make(map[tictactoe.GameId]*model.ServerGame),
+		IndexListeners: make(map[chan<- *model.GameStatusEvent]struct{}),
+		GamePlay:       make(chan *model.GamePlayEvent, 5),
+		GameStatus:     make(chan *model.GameStatusEvent, 5),
 	}
 
 	player1 := &tictactoe.Participant{Id: "t1", Name: "Testing 1", Player: true}
@@ -91,9 +68,9 @@ func NewServer() *Server {
 			})),
 	}
 
-	sg := &ServerGame{
+	sg := &model.ServerGame{
 		Game:      &g,
-		Listeners: make(map[tictactoe.ParticipantId]map[chan<- *GamePlayEvent]struct{}),
+		Listeners: make(map[tictactoe.ParticipantId]map[chan<- *model.GamePlayEvent]struct{}),
 	}
 
 	s.Games[sg.Id] = sg
@@ -125,7 +102,7 @@ func (this *Server) ListenForGameplayEvents() {
 	for event := range this.GamePlay {
 		log.Println("Game play event received:", event)
 		this.mu.Lock()
-		game := this.Games[event.gameId]
+		game := this.Games[event.GameId]
 		for _, listeners := range game.Listeners {
 			for listener := range listeners {
 				listener <- event
@@ -172,7 +149,7 @@ func (this *Server) GetClientId(c echo.Context) (tictactoe.ParticipantId, error)
 	return tictactoe.ParticipantId(cookie.Value), nil
 }
 
-func (this *Server) getGame(c echo.Context) (*ServerGame, error) {
+func (this *Server) getGame(c echo.Context) (*model.ServerGame, error) {
 	idStr := c.Param("id")
 	idQueryStr := c.QueryParam("id")
 	if idStr == "" {

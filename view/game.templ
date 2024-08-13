@@ -1,0 +1,40 @@
+package view
+
+import (
+	"fmt"
+	"jay/tictactoe/model"
+	tictactoe "jay/tictactoe/pkg"
+	"jay/tictactoe/view/layout"
+	"jay/tictactoe/view/shared"
+)
+
+templ Game(game *tictactoe.Game, clientId tictactoe.ParticipantId) {
+	@layout.Base() {
+		<style>
+  main {
+    margin-left: 250px;
+  }
+</style>
+		<div hx-ext="sse" sse-connect={ fmt.Sprintf("/liveboard/%d", game.Id) } sse-swap="first-join">
+			@GamePartial(game, clientId)
+		</div>
+	}
+}
+
+templ GamePartial(game *tictactoe.Game, clientId tictactoe.ParticipantId) {
+	@shared.Clients(game, clientId)
+	@shared.Board(game)
+	<div hx-trigger="sse:game_over" hx-get={ fmt.Sprintf("/games/%d/history/0", game.Id) }>
+		if game.GameOver() {
+			@shared.History(&model.GameHistoryControls{
+				Id:            game.Id,
+				BackOffset:    -1,
+				Offset:        0,
+				ForwardOffset: 1,
+				CanGoBack:     true,
+				CanGoForward:  false,
+				AtCurrent:     true,
+			})
+		}
+	</div>
+}

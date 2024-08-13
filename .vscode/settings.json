@@ -1,0 +1,11 @@
+{
+  "emmet.includeLanguages": {
+    "templ": "html"
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true,
+    "**/*_templ.go": true
+  }
+}

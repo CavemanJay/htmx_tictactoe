@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"jay/tictactoe/internal/events"
+	"jay/tictactoe/model"
 	tictactoe "jay/tictactoe/pkg"
+	"jay/tictactoe/view"
+	"jay/tictactoe/view/shared"
 	"log"
 	"net/http"
 	"strconv"
@@ -14,17 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
-
-type GameHistoryControls struct {
-	Id            tictactoe.GameId
-	BackOffset    int
-	ForwardOffset int
-	Offset        int
-	Oob           bool
-	CanGoForward  bool
-	CanGoBack     bool
-	AtCurrent     bool
-}
 
 func (this *Server) GameHistoryHandler(c echo.Context) error {
 	game, err := this.getGame(c)
@@ -36,7 +28,7 @@ func (this *Server) GameHistoryHandler(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	gameHistoryControls := GameHistoryControls{
+	gameHistoryControls := model.GameHistoryControls{
 		Id:            game.Id,
 		BackOffset:    offset - 1,
 		Offset:        offset,
@@ -48,7 +40,7 @@ func (this *Server) GameHistoryHandler(c echo.Context) error {
 	}
 	type ControlsData struct {
 		tictactoe.Board
-		GameHistoryControls
+		model.GameHistoryControls
 	}
 	board := game.Board
 	if offset < 0 {
@@ -81,11 +73,7 @@ func (this *Server) GameDisplayHandler(c echo.Context) error {
 		}
 	}
 
-	page := GamePage{
-		Game:     game.Game,
-		ClientId: clientId,
-	}
-	return c.Render(200, "play", page)
+	return render(c, view.Game(game.Game, clientId))
 }
 
 func (this *Server) LiveGameListHandler(c echo.Context) error {
@@ -94,7 +82,7 @@ func (this *Server) LiveGameListHandler(c echo.Context) error {
 	c.Response().Header().Set(echo.HeaderConnection, "keep-alive")
 	c.Response().Flush()
 
-	indexListener := make(chan *GameStatusEvent)
+	indexListener := make(chan *model.GameStatusEvent)
 	this.mu.Lock()
 	this.IndexListeners[indexListener] = struct{}{}
 	this.mu.Unlock()
@@ -106,19 +94,17 @@ func (this *Server) LiveGameListHandler(c echo.Context) error {
 		close(indexListener)
 	}
 
-	processEvent := func(event *GameStatusEvent) bool {
+	processEvent := func(event *model.GameStatusEvent) bool {
 		// game := this.Games[event.gameId].Game
 
 		w := c.Response().Writer
 		fmt.Fprint(w, "event: game_update\n")
-		var templateBuf bytes.Buffer
-		// err := c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "game-card-oob", game, c)
-		err := c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, "game-list", this, c)
+		s, err := renderToString(c, view.GameList(this.gameList()))
 		if err != nil {
 			log.Fatal(err)
 			return true
 		}
-		w.Write([]byte("data: " + templateBuf.String() + "\n\n"))
+		w.Write([]byte("data: " + s + "\n\n"))
 		c.Response().Flush()
 		log.Println("Sent game update event")
 		return true
@@ -157,30 +143,33 @@ func (this *Server) GameHandler(c echo.Context) error {
 	c.Response().Header().Set(echo.HeaderConnection, "keep-alive")
 	c.Response().Flush()
 
-	gameListener := make(chan *GamePlayEvent)
+	gameListener := make(chan *model.GamePlayEvent)
 	this.mu.Lock()
 	playerJoined := game.Join(clientId, string(clientId))
 	eventType := events.SpectatorJoined
 	if playerJoined {
-		this.GameStatus <- &GameStatusEvent{gameId: game.Id, info: "Player joined"}
+		this.GameStatus <- &model.GameStatusEvent{GameId: game.Id, Info: "Player joined"}
 		eventType = events.PlayerJoined
 	}
-	this.GamePlay <- &GamePlayEvent{
-		gameId:    game.Id,
-		info:      fmt.Sprintf("Client %s joined game (%s)", clientId, sessionIdStr),
-		eventType: eventType,
+	this.GamePlay <- &model.GamePlayEvent{
+		GameId:    game.Id,
+		Info:      fmt.Sprintf("Client %s joined game (%s)", clientId, sessionIdStr),
+		EventType: eventType,
 	}
 	// clientListeners, exists := this.ActiveGameListeners[clientId]
 	clientListeners, exists := this.Games[game.Id].Listeners[clientId]
 	if !exists {
-		clientListeners = make(map[chan<- *GamePlayEvent]struct{})
+		clientListeners = make(map[chan<- *model.GamePlayEvent]struct{})
 		this.Games[game.Id].Listeners[clientId] = clientListeners
 	}
 	clientListeners[gameListener] = struct{}{}
 	this.mu.Unlock()
 
 	// Send full page content in case client gets disconnected without refreshing page
-	template, _ := renderTemplate("play-partial", GamePage{Game: game.Game, ClientId: clientId}, c)
+	template, err := renderToString(c, view.GamePartial(game.Game, clientId))
+	if err != nil {
+		return err
+	}
 	sendSse("first-join", template, c)
 
 	cleanup := func() {
@@ -197,10 +186,10 @@ func (this *Server) GameHandler(c echo.Context) error {
 		if p.Player {
 			eventType = events.PlayerLeft
 		}
-		this.GamePlay <- &GamePlayEvent{
-			gameId:    game.Id,
-			info:      fmt.Sprintf("Client %s disconnected (%s)", clientId, sessionIdStr),
-			eventType: eventType,
+		this.GamePlay <- &model.GamePlayEvent{
+			GameId:    game.Id,
+			Info:      fmt.Sprintf("Client %s disconnected (%s)", clientId, sessionIdStr),
+			EventType: eventType,
 		}
 	}
 
@@ -227,7 +216,7 @@ func (this *Server) NewGameHandler(c echo.Context) error {
 	this.Games[game.Id] = game
 	this.mu.Unlock()
 	// log.Println("New game created. Total games:", len(tictactoe.Games))
-	this.GameStatus <- &GameStatusEvent{gameId: game.Id, info: "New game created"}
+	this.GameStatus <- &model.GameStatusEvent{GameId: game.Id, Info: "New game created"}
 	return c.Render(http.StatusOK, "game-list", this)
 	// return c.Render(http.StatusOK, "game-card", game)
 }
@@ -238,7 +227,9 @@ func (this *Server) GameBoardHandler(c echo.Context) error {
 		return err
 	}
 	// c.Request().Header.Get("Hx-Request")
-	return c.Render(http.StatusOK, "board", game)
+	// return c.Render(http.StatusOK, "board", game)
+
+	return render(c, shared.Board(game.Game))
 }
 
 func (this *Server) PlayerMoveHandler(c echo.Context) error {
@@ -271,10 +262,10 @@ func (this *Server) PlayerMoveHandler(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusBadRequest, err.Error())
 	} else {
-		this.GamePlay <- &GamePlayEvent{
-			gameId:    game.Id,
-			info:      fmt.Sprintf("Player %d played at cell %d", playerValue, cellIdx),
-			eventType: events.MovePlayed,
+		this.GamePlay <- &model.GamePlayEvent{
+			GameId:    game.Id,
+			Info:      fmt.Sprintf("Player %d played at cell %d", playerValue, cellIdx),
+			EventType: events.MovePlayed,
 		}
 	}
 	// cell := game.GetCell(cellIdx)
@@ -283,36 +274,48 @@ func (this *Server) PlayerMoveHandler(c echo.Context) error {
 }
 
 func (this *Server) IndexHandler(c echo.Context) error {
-	return c.Render(http.StatusOK, "index", this)
+	return render(c, view.Index(this.gameList()))
 }
 
 func (this *Server) GameListHandler(c echo.Context) error {
 	return c.Render(http.StatusOK, "game-list", this)
 }
 
-func renderTemplate(name string, data interface{}, c echo.Context) (string, error) {
-	var templateBuf bytes.Buffer
-	err := c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, name, data, c)
-	if err != nil {
-		return "", err
+// func renderTemplate(name string, data interface{}, c echo.Context) (string, error) {
+// 	var templateBuf bytes.Buffer
+// 	err := c.Echo().Renderer.Render(&tictactoe.TemplateWriter{Writer: &templateBuf}, name, data, c)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return templateBuf.String(), nil
+// }
+
+func processGameEvent(c echo.Context, event *model.GamePlayEvent, game *model.ServerGame, clientId tictactoe.ParticipantId) bool {
+	sendError := func(err error) {
+		var b bytes.Buffer
+		w := SingleLineWriter{Writer: &b}
+		w.Write([]byte(err.Error()))
+		sendSse("error", b.String(), c)
 	}
-	return templateBuf.String(), nil
-}
 
-func processGameEvent(c echo.Context, event *GamePlayEvent, game *ServerGame, clientId tictactoe.ParticipantId) bool {
-
-	switch event.eventType {
+	switch event.EventType {
 	case events.Invalid:
 		// _, _ = renderTemplate("client-list", GamePage{Game: game, ClientId: clientId}, c)
 		log.Println("Invalid event", event)
 	case events.SpectatorJoined, events.SpectatorLeft, events.PlayerJoined, events.PlayerLeft:
-		t, _ := renderTemplate("client-list", GamePage{Game: game.Game, ClientId: clientId}, c)
-		sendSse("clients", t, c)
+		// t, _ := renderTemplate("client-list", model.GamePage{Game: game.Game, ClientId: clientId}, c)
+		t, err := renderToString(c, shared.Clients(game.Game, clientId))
+		if err != nil {
+			sendError(err)
+		} else {
+			sendSse("clients", t, c)
+		}
 	case events.MovePlayed:
 		_, idx := game.LastMove()
-		t, err := renderTemplate("cell", game.GetCell(idx), c)
+		// t, err := renderTemplate("cell", game.GetCell(idx), c)
+		t, err := renderToString(c, shared.Cell(game.GetCell(idx), game.Id, false))
 		if err != nil {
-			panic(err)
+			sendError(err)
 		}
 
 		time.Sleep(200 * time.Millisecond)
@@ -329,9 +332,11 @@ func processGameEvent(c echo.Context, event *GamePlayEvent, game *ServerGame, cl
 	return true
 }
 
-func sendSse(eventName string, msg string, c echo.Context) {
-	w := c.Response().Writer
-	fmt.Fprintf(w, "event: %s\n", eventName)
-	fmt.Fprintf(w, "data: %s\n\n", msg)
-	c.Response().Flush()
+func (this *Server) gameList() []*tictactoe.Game {
+
+	var games []*tictactoe.Game
+	for _, game := range this.Games {
+		games = append(games, game.Game)
+	}
+	return games
 }

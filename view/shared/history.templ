@@ -1,0 +1,38 @@
+package shared
+
+import (
+	"fmt"
+	"jay/tictactoe/model"
+)
+
+templ History(history *model.GameHistoryControls) {
+	<div id="history-controls" class="btn-group d-flex justify-content-center">
+		<a
+			type="button"
+			class={ "btn","btn-outline-secondary",templ.KV("disabled",!history.CanGoBack) }
+			href={ templ.SafeURL(fmt.Sprintf("/games/%d/history/%d", history.Id, history.BackOffset)) }
+			hx-swap="outerHTML"
+			hx-target="closest div"
+		>
+			Previous
+		</a>
+		<a
+			type="button"
+			class={ "btn","btn-outline-primary",templ.KV("disabled",history.AtCurrent) }
+			href={ templ.SafeURL(fmt.Sprintf("/games/%d/history/0", history.Id)) }
+			hx-swap="outerHTML"
+			hx-target="closest div"
+		>
+			Current
+		</a>
+		<a
+			type="button"
+			class={ "btn","btn-outline-secondary",templ.KV("disabled",!history.CanGoForward) }
+			href={ templ.SafeURL(fmt.Sprintf("/games/%d/history/%d", history.Id, history.ForwardOffset)) }
+			hx-swap="outerHTML"
+			hx-target="closest div"
+		>
+			Next
+		</a>
+	</div>
+}

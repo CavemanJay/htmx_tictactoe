@@ -1,0 +1,39 @@
+package view
+
+import (
+	"fmt"
+	tictactoe "jay/tictactoe/pkg"
+	"jay/tictactoe/view/layout"
+)
+
+templ Index(games []*tictactoe.Game) {
+	@layout.Base() {
+		<div class="text-center">
+			<h3 class="display-4">Welcome to TicTacToe</h3>
+			<button class="btn btn-primary" hx-post="/newgame" hx-target=".gamelist">
+				New Game
+			</button>
+			@GameList(games)
+		</div>
+	}
+}
+
+templ GameList(games []*tictactoe.Game) {
+	<div
+		class="gamelist"
+		hx-ext="sse"
+		sse-connect="/livegamelist"
+		sse-swap="game_update"
+	>
+		for _,game := range games {
+			@GameCard(game)
+		}
+	</div>
+}
+
+templ GameCard(game *tictactoe.Game) {
+	<div class="card">
+		<a href={ templ.SafeURL(fmt.Sprintf("/games/%d", game.Id)) }>{ fmt.Sprintf("%d", game.Id) } </a>
+		<p>{ game.Info() }</p>
+	</div>
+}

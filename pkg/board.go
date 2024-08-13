@@ -8,7 +8,7 @@ import (
 type Cell struct {
 	Symbol string
 	Index  uint
-	GameId GameId
+	// GameId GameId
 }
 
 type Board struct {

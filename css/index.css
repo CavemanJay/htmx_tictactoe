@@ -46,6 +46,14 @@ body {
   cursor: pointer;
 }
 
+.tic-tac-toe-cell.disabled {
+  cursor: not-allowed;
+}
+.tic-tac-toe-cell.disabled:hover {
+  cursor: not-allowed;
+  background-color: #fff;
+}
+
 .tic-tac-toe-cell:hover {
   background-color: #f0f0f0;
 }

@@ -1,0 +1,60 @@
+package layout
+
+import (
+	"fmt"
+	"math/rand"
+)
+
+templ Base() {
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>TicTacToe</title>
+			<link
+				rel="stylesheet"
+				href="/css/lib/bootstrap/dist/css/bootstrap.min.css"
+			/>
+			<link rel="stylesheet" href={ fmt.Sprintf("/css/index.css?v=%d", randomNum()) }/>
+			<!-- <script src="https://unpkg.com/htmx.org@2.0.1"></script> -->
+			<script src="https://unpkg.com/htmx.org@2.0.1/dist/htmx.js"></script>
+			<script src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js"></script>
+			<script>
+      htmx.config.globalViewTransitions = true;
+    </script>
+		</head>
+		<body hx-boost="true">
+			<header>
+				<nav
+					class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow"
+				>
+					<div class="container-fluid">
+						<a hx-boost="true" class="navbar-brand" href="/">TicTacToe</a>
+						<button
+							class="navbar-toggler"
+							type="button"
+							data-bs-toggle="collapse"
+							data-bs-target=".navbar-collapse"
+							aria-controls="navbarSupportedContent"
+							aria-expanded="false"
+							aria-label="Toggle navigation"
+						>
+							<span class="navbar-toggler-icon"></span>
+						</button>
+					</div>
+				</nav>
+			</header>
+			<div class="container">
+				<main role="main" class="pb-3">
+					{ children... }
+				</main>
+			</div>
+			<script src="/css/lib/jquery/dist/jquery.min.js"></script>
+			<script src="/css/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+		</body>
+	</html>
+}
+
+func randomNum() int {
+	return rand.Intn(100)
+}

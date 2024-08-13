@@ -147,7 +147,7 @@ func (g *Game) GetCell(index int) *Cell {
 	return &Cell{
 		Symbol: g.Board.Symbol(uint(index)),
 		Index:  uint(index),
-		GameId: g.Id,
+		// GameId: g.Id,
 	}
 }
 
@@ -249,4 +249,33 @@ func (g *Game) LastMove() (int, int) {
 	return -1, -1
 }
 
-func UNUSED(x ...interface{}) {}
+func (g *Game) Cells() <-chan *Cell {
+	ch := make(chan *Cell)
+	go func() {
+		for i := 0; i < 9; i++ {
+			cell := &Cell{
+				Symbol: g.Board.Symbol(uint(i)),
+				Index:  uint(i),
+				// GameId: g.Id,
+			}
+			ch <- cell
+		}
+		close(ch)
+	}()
+	return ch
+}
+
+func (g *Game) Spectators() <-chan *Participant {
+	ch := make(chan *Participant, g.Participants.Len())
+	go func() {
+		for pair := g.Participants.Oldest(); pair != nil; pair = pair.Next() {
+			if pair.Value.Player {
+				continue
+			}
+
+			ch <- pair.Value
+		}
+		close(ch)
+	}()
+	return ch
+}

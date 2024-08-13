@@ -1,0 +1,34 @@
+package shared
+
+import (
+	"fmt"
+	tictactoe "jay/tictactoe/pkg"
+)
+
+templ Board(game *tictactoe.Game) {
+	<div id="board" class="tic-tac-toe-board" hx-swap="outerHTML">
+		for cell := range game.Cells() {
+			@Cell(cell, game.Id, game.GameOver())
+		}
+	</div>
+}
+
+templ Cell(cell *tictactoe.Cell, gameId tictactoe.GameId, disabled bool) {
+	<div
+		class={ "tic-tac-toe-cell", templ.KV("disabled", disabled) }
+		data-cell
+		hx-swap="none"
+	>
+		if !disabled {
+			hx-post={ fmt.Sprintf("/move?i=%d&id=%d", cell.Index, gameId) }
+		}
+		<span
+			class="drop-in"
+			id={ fmt.Sprintf("cell_%d", cell.Index) }
+			sse-swap={ fmt.Sprintf("cell_%d", cell.Index) }
+			hx-swap="outerHTML"
+		>
+			{ cell.Symbol }
+		</span>
+	</div>
+}

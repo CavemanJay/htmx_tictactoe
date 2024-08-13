@@ -1,0 +1,68 @@
+package shared
+
+import tictactoe "jay/tictactoe/pkg"
+
+templ Clients(game *tictactoe.Game, clientId tictactoe.ParticipantId) {
+	<aside
+		id="client-list"
+		class="sidebar"
+		sse-swap="clients"
+		hx-swap="outerHTML"
+	>
+		<div>
+			<h3>Players</h3>
+			<div class="player-info">
+				if game.Started() && game.CurrentPlayer.Name == game.Player1.Name {
+					<h5
+						class="fw-bold"
+					>
+						Player 1 
+						<span>
+							if game.Player1Name() == string(clientId) {
+								(You)
+							}
+						</span>
+					</h5>
+				}
+				<p>Client Id: { game.Player1Name() }</p>
+			</div>
+			<div class="player-info">
+				if game.Player2 !=nil {
+					<h5 class="fw-bold">
+						Player 2 
+						<span>
+							if game.Player2Name() == string(clientId) {
+								(You)
+							}
+						</span>
+					</h5>
+					<p>Client Id: { game.Player2Name() }</p>
+				} else {
+					<span>Waiting for player 2...</span>
+				}
+			</div>
+		</div>
+		<div>
+			<h4>Spectators</h4>
+			<ul class="list-group">
+				for spec := range game.Spectators() {
+					@Spectator(spec)
+				}
+			</ul>
+		</div>
+	</aside>
+}
+
+templ Spectator(spec *tictactoe.Participant) {
+	<li
+		id={ spectatorId(spec) }
+		class={ "list-group-item", "spectator", templ.KV("connected",spec.Connected) }
+	>
+		{ spec.Name }
+		<span hx-trigger="load" hx-get={ "/is-this-me?id=" + string(spec.Id) }></span>
+	</li>
+}
+
+func spectatorId(spec *tictactoe.Participant) string {
+	return "spectator_" + string(spec.Id)
+}
